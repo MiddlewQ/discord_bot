@@ -21,10 +21,11 @@ logging.basicConfig(level=logging.INFO,
 # Constants
 load_dotenv()
 TOKEN: Final[str] = os.getenv('DISCORD_TOKEN')
+PREFIX: Final[str] = os.getenv('COMMAND_PREFIX')
 
 intents = discord.Intents.default()
 intents.message_content = True  # Enable the message content intent
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 # Replace default help command with our own
 bot.remove_command("help")
