@@ -19,4 +19,4 @@ Most commands prints its output as embeds. Commands needs a prefix
 ## How to run
 A .env file is required with your discord_token and command_prefix
 
-Programmed in WSL, recommend using Docker to build and run it. 
+Programmed in WSL2 Ubuntu, recommend using Docker to build and run it. 
