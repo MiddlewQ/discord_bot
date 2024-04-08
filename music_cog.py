@@ -314,3 +314,23 @@ class music_cog(commands.Cog):
         self.vc = None
         await self.vc.disconnect()
 
+    @commands.command(name="status", aliases=["status"], help="Gives the music_cog attributes", extra="!status, !stat")
+    async def status(self, ctx):
+        # return {'data': [{'ingredient': name, 'quantity': quantity, 'unit': unit} for name, unit, quantity in c]}
+        description = {
+            'status': {
+                 'playing': self.is_playing, 
+                 'paused': self.is_paused, 
+                 'current song': self.current_song, 
+                 'queue': self.music_queue, 
+                 'queue duration': self.queue_duration, 
+                 'voice channel': self.vc} 
+            }
+        embed = discord.Embed(
+            title=":gear: Bot Status :gear:",
+            description=description,
+            color=discord.Color.blue()
+        )
+
+        return embed
+
