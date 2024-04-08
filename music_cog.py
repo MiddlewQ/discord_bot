@@ -53,7 +53,6 @@ class music_cog(commands.Cog):
     def search_yt(self, item):
         if item.startswith("https://"):
             search = self.ytdl.extract_info(item, download=False)
-            print(search['duration'])
             # result = search['entries'][0]
             video_info = {
                 'source': item,
@@ -61,7 +60,6 @@ class music_cog(commands.Cog):
                 'thumbnail': search['thumbnail'],
                 'duration': search['duration']
             }
-            print(video_info)
             return video_info
         # if item contains 'sabaton' lower- or upper-case have a 30 percent of playing metal machine
 
@@ -118,7 +116,7 @@ class music_cog(commands.Cog):
 
             #in case we fail to connect
             if self.vc == None:
-                await ctx.send("```Could not connect to the voice channel```")
+                await ctx.send(embed=discord.Embed(description=":gear: Could not connect to the voice channel"))
                 return
         else:
             await self.vc.move_to(self.music_queue[0][1])
@@ -156,7 +154,7 @@ class music_cog(commands.Cog):
         
         if not self.vc or not self.vc.is_connected():     # if self.vc is None
             self.vc = await channel.connect()
-            await ctx.send(f'Connected to {channel.name}')
+            await ctx.send(embed=discord.Embed(description=f'Connected to {channel.name}'))
         elif self.vc.channel != channel:                  # Switch to the new server  
             self.vc = await self.vc.move_to(channel)
             await ctx.send(embed=discord.Embed(description=f":gear: Moved to {channel.name}"))
@@ -272,10 +270,10 @@ class music_cog(commands.Cog):
     @commands.command(name="playing", aliases=["np"], help="Displays the current song being played.", extras="!playing")
     async def playing(self, ctx):
         if self.is_playing:
-            await ctx.send(f"```Currently playing: {self.music_queue[0][0]}```")
+            await ctx.send(embed=discord.Embed(description=f"Currently playing: {self.music_queue[0][0]}"))
             return
         
-        await ctx.send("```No music playing```")
+        await ctx.send(embed=discord.Embed(description=":gear: No music playing"))
 
 
     @commands.command(name="remove", aliases=["rm"], help="Removes song at <index> or last in the queue if no arguments given.", extras="!remove, !remove <index>")
@@ -296,7 +294,6 @@ class music_cog(commands.Cog):
             self.music_queue.pop(index)
             await ctx.send(embed=discord.Embed(description=f":gear: Song: {song['title']} removed."))
         except Exception as e:
-            print(e)
             ctx.send(embed=discord.Embed(description=":gear: Invalid Index"))
         
 
@@ -345,6 +342,5 @@ class music_cog(commands.Cog):
             description=status_description,
             color=discord.Color.blue()
         )
-        print(status_description)
         await ctx.send(embed=embed)
 
