@@ -108,6 +108,8 @@ class music_cog(commands.Cog):
             return
         
         self.is_playing = True
+        self.is_paused = False
+
         m_url = self.music_queue[0][0]['source']
         
         # Try to connect to voice channel if you are not already connected
@@ -192,7 +194,7 @@ class music_cog(commands.Cog):
             await self.play_music(ctx)
 
 
-    @commands.command(name="multiplay", aliases=["mp", "mplay"], help="Adds up to five songs to the queue. ", extras="!play <search/URL> | <search/URL> | ...")
+    @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help="Adds up to five songs to the queue. ", extras="!play <search/URL> | <search/URL> | ...")
     async def multiplay(self, ctx, *args):
         query = " ".join(args)
         searches = [search.strip() for search in query.split('|')]
@@ -206,12 +208,10 @@ class music_cog(commands.Cog):
         if self.is_playing:
             self.is_playing = False
             self.is_paused = True
-
+            ctx.send(embed=discord.Embed(description=":gear: Paused"))
             self.vc.pause()
-        elif self.is_paused:
-            self.is_paused = False
-            self.is_playing = True
-            self.vc.resume()
+        else:
+            self.resume(ctx, *args)
 
 
     @commands.command(name = "resume", aliases=["r"], help="Resumes playing the current song.", extras="!resume")
@@ -222,10 +222,12 @@ class music_cog(commands.Cog):
             self.vc.resume()
 
 
+
     @commands.command(name="skip", aliases=["s"], help="Skips the current song that is being played or is paused.", extras="!skip")
     async def skip(self, ctx):
         if not ctx.author.voice or not ctx.author.voice.channel:
             await ctx.send(embed=discord.Embed(description=f":gear: You need to be in a voice channel to skip songs."))
+            return
         if not self.is_playing and not self.music_queue:
             await ctx.send(embed=discord.Embed(description=f":gear: There's no song playing to skip."))
             return
@@ -234,9 +236,10 @@ class music_cog(commands.Cog):
             return
         
         self.vc.stop()
+        
         await ctx.send(embed=discord.Embed(description=f":gear: [{self.current_song[0]['title']}]({self.current_song[0]['source']}) was skipped."))
         #try to play next in the queue if it exists
-        await self.play_music(ctx)
+        self.play_next()
             
 
     @commands.command(name="queue", aliases=["q"], help="Displays the current songs in queue.", extras="!queue")
@@ -311,26 +314,37 @@ class music_cog(commands.Cog):
     async def dc(self, ctx):
         self.is_playing = False
         self.is_paused = False
-        self.vc = None
-        await self.vc.disconnect()
+    
+        # Clear the current song and the music queue
+        self.current_song = None
+        self.music_queue.clear()  # Assuming self.music_queue is a list
+        self.queue_duration = 0  # Reset the queue duration if you track it
 
-    @commands.command(name="status", aliases=["status"], help="Gives the music_cog attributes", extra="!status, !stat")
+        if self.vc:
+            await self.vc.disconnect()
+            self.vc = None
+
+    @commands.command(name="status", aliases=["stat"], help="Gives the music_cog attributes", extra="!status, !stat")
     async def status(self, ctx):
         # return {'data': [{'ingredient': name, 'quantity': quantity, 'unit': unit} for name, unit, quantity in c]}
-        description = {
-            'status': {
-                 'playing': self.is_playing, 
-                 'paused': self.is_paused, 
-                 'current song': self.current_song, 
-                 'queue': self.music_queue, 
-                 'queue duration': self.queue_duration, 
-                 'voice channel': self.vc} 
-            }
+        songs = []
+        for i in range(len(self.music_queue)):
+            songs.append(self.music_queue[i][0]['title'])        
+        
+        status_description = (    
+            f"Playing: {self.is_playing}\n"
+            f"Paused: {self.is_paused}\n"
+            # f"Current Song: {self.current_song[0]['title'] if self.current_song else 'None'}\n"           | Not used, do !queue instead
+            # f"Queue: {', '.join(songs)}\n"  # Join the song URLs with a comma and a space
+            f"Queue Duration: {self.queue_duration}\n"
+            f"Voice Channel: {self.vc.channel.name if self.vc and self.vc.is_connected() else 'Not connected'}"
+        )
+        
         embed = discord.Embed(
             title=":gear: Bot Status :gear:",
-            description=description,
+            description=status_description,
             color=discord.Color.blue()
         )
-
-        return embed
+        print(status_description)
+        await ctx.send(embed=embed)
 
