@@ -9,6 +9,7 @@ Hi this is my discord music bot. First time using the dicsord python library. Wo
 * Help class for information
 * Embed output to text channel
 * Preparation to run with Dockerfile
+* Very simple discord.log file in root of project
 
 ### Commands
 Outputs are printed as embeds (similar to other more popular music bots)
