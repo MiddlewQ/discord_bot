@@ -8,7 +8,7 @@ Hi this is my discord music bot. First time using a python library to this exten
 * No permission handling
 * Help class for information
 * Embed output to text channel
-* Preparation for Docker implemented
+* Dockerfile
 
 ### Commands
 Most commands prints its output as embeds.
