@@ -1,6 +1,6 @@
 # My Discord Music Bot
 
-Hi this is my discord music bot. First time using the dicsord python library. Would not recommend copying this bot. Further building on this project https://github.com/pawel02/music_bot/. Recommend watching his youtube video to gain an understanding of how it works.
+Hi this is my discord music bot. First time using the discord python library. Would not recommend copying this design. Further building on this project https://github.com/pawel02/music_bot/. 
 
 ## Features
 * Search Youtube videos for songs to play in discord
