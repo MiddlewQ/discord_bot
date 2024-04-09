@@ -11,7 +11,7 @@ Hi this is my discord music bot. First time using the dicsord python library. Wo
 * Dockerfile
 
 ### Commands
-Most commands prints its output as embeds.
+Outputs are printed as embeds (similar to other more popular music bots)
 
 1. Help
 2. Join
@@ -26,6 +26,6 @@ Most commands prints its output as embeds.
 11. Status
 
 ## How to run
-A .env file is required with your discord_token and command_prefix
+Modify the existing .env file with your discord token and prefered prefix. For example: !<command>
 
 Programmed in Ubuntu, recommend using Docker to build and run it. 
