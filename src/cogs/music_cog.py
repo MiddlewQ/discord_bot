@@ -6,7 +6,7 @@ import asyncio
 
 import random # used for metal machine
 
-from utils import time_to_seconds_format, seconds_to_time_format
+from src.utils import time_to_seconds_format, seconds_to_time_format
 
 class music_cog(commands.Cog):
     def __init__(self, bot):
