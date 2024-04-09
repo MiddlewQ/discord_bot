@@ -4,8 +4,8 @@ import os, asyncio
 import logging
 
 #import all of the cogs
-from help_cog import help_cog
-from music_cog import music_cog
+from src.cogs.help_cog import help_cog
+from src.cogs.music_cog import music_cog
 
 # Loading token from .env file
 from dotenv import load_dotenv
