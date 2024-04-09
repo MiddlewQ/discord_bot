@@ -11,17 +11,14 @@ from src.cogs.music_cog import music_cog
 from dotenv import load_dotenv
 from typing import Final
 
-# Handling for logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s:%(levelname)s:%(name)s: %(message)s',
-                    handlers=[
-                        logging.FileHandler("discord.log", encoding='utf-8', mode='w'),
-                        logging.StreamHandler()  # This adds logging to the console as well
-                    ])
+# Logging
+from . import log_config
+logger = log_config.logging.getLogger("bot")
+
 # Constants
 load_dotenv()
-TOKEN: Final[str] = os.getenv('DISCORD_TOKEN')
-PREFIX: Final[str] = os.getenv('COMMAND_PREFIX')
+TOKEN  = os.getenv('DISCORD_TOKEN')
+PREFIX = os.getenv('COMMAND_PREFIX')
 
 intents = discord.Intents.default()
 intents.message_content = True  # Enable the message content intent
@@ -31,19 +28,25 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 bot.remove_command("help")
 
 
-# Handling Bot Startup!
-@bot.event
-async def on_ready() -> None:
-    print(f'{bot.user} has connected to Discord!')
-    
-
-
+# Used to ignore music commands in DMs
+def in_guild(ctx):
+    if ctx.guild is None:
+        return False
+    return True
 
 # Main Entry Point
 async def main():
     async with bot:
-        await bot.add_cog(help_cog(bot))
-        await bot.add_cog(music_cog(bot))
+        h_cog = help_cog(bot)
+        m_cog = music_cog(bot)
+        m_cog.cog_check(in_guild)
+
+        await bot.add_cog(h_cog)
+        logger.info("Help cog initialized and added to the bot.")
+
+        await bot.add_cog(m_cog)
+        logger.info("Music cog has been initialized and added to the bot.")
+        
         await bot.start(TOKEN)
     
 if __name__ == "__main__":

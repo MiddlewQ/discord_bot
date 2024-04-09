@@ -7,6 +7,9 @@ import asyncio
 import random # used for metal machine
 
 from src.utils import time_to_seconds_format, seconds_to_time_format
+from log_config import logging
+
+logger = logging.getLogger("music")
 
 class music_cog(commands.Cog):
     def __init__(self, bot):
@@ -24,6 +27,9 @@ class music_cog(commands.Cog):
 
         self.vc = None
         self.ytdl = YoutubeDL(self.YDL_OPTIONS)
+
+        logger.info("Started Music Log")
+
 
     def add_song_info(self, song, requester):
         embed = discord.Embed(
@@ -50,10 +56,12 @@ class music_cog(commands.Cog):
         embed.set_footer(icon_url=requester.avatar.url, text=f"requested by {str(requester).capitalize()}") 
         return embed
         
+
     def search_yt(self, item):
         if item.startswith("https://"):
             search = self.ytdl.extract_info(item, download=False)
-            # result = search['entries'][0]
+            if not search:
+                return None
             video_info = {
                 'source': item,
                 'title': search['title'],
@@ -63,8 +71,13 @@ class music_cog(commands.Cog):
             return video_info
         # if item contains 'sabaton' lower- or upper-case have a 30 percent of playing metal machine
 
+        
         search = VideosSearch(item, limit=1)
+        if not search.result()['result']:
+            return None
         result = search.result()['result'][0]
+
+        
         video_info = {
             'source': result['link'],
             'title': result['title'],
@@ -73,7 +86,9 @@ class music_cog(commands.Cog):
         }
         return video_info
 
+
     async def play_next(self):
+        logger.debug("Attempting to play next")
         if len(self.music_queue) == 0:
             self.is_playing = False
             self.is_paused = False
@@ -127,9 +142,11 @@ class music_cog(commands.Cog):
         self.current_song = self.music_queue.pop(0)
         
         # Sonic Logic Magic - cool n' stuff
+
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
         song = data['url']
+
         self.vc.play(discord.FFmpegPCMAudio(song, executable= "ffmpeg", **self.FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
 
 
@@ -161,7 +178,7 @@ class music_cog(commands.Cog):
         else:
             await ctx.send(embed=discord.Embed(description=f":gear: I'm already in this channel."))
 
-    
+
     @commands.command(name="play", aliases=["p", "pl"], help="Search Youtube to play video.", extras="!play <search/URL>")
     async def play(self, ctx, *args):
         query = " ".join(args)
@@ -171,11 +188,12 @@ class music_cog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=":gear: Not in a voice channel"))
             return
         
-        if self.is_paused:
-            self.vc.resume()
-            self.is_paused = False
-        
         song = self.search_yt(query)
+        if not song:
+            await ctx.send(embed=discord.Embed(description=":gear: Could not find the video. Try another search phrase."))
+            return
+
+        logger.info(f"Added '{song['title']}' to queue in guild '{ctx.guild.name}' requested by '{ctx.author.name}'")
 
         if isinstance(song, bool):
             await ctx.send(embed=discord.Embed(description=":gear: Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format"))           
@@ -206,7 +224,7 @@ class music_cog(commands.Cog):
         if self.is_playing:
             self.is_playing = False
             self.is_paused = True
-            ctx.send(embed=discord.Embed(description=":gear: Paused"))
+            ctx.send(embed=discord.Embed(description=":gear: Paused."))
             self.vc.pause()
         else:
             self.resume(ctx, *args)
@@ -218,7 +236,6 @@ class music_cog(commands.Cog):
             self.is_paused = False
             self.is_playing = True
             self.vc.resume()
-
 
 
     @commands.command(name="skip", aliases=["s"], help="Skips the current song that is being played or is paused.", extras="!skip")
@@ -320,6 +337,7 @@ class music_cog(commands.Cog):
         if self.vc:
             await self.vc.disconnect()
             self.vc = None
+
 
     @commands.command(name="status", aliases=["stat"], help="Gives the music_cog attributes", extra="!status, !stat")
     async def status(self, ctx):

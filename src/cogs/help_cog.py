@@ -1,18 +1,24 @@
 import discord
 from discord.ext import commands
+
+from log_config import logging
+logger = logging.getLogger("bot")
+
 class help_cog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.text_channel_list = []
         self.command_order = ['join', 'play', 'playing', 'multiplay', 'queue', 'pause', 'resume', 'skip', 'help', 'remove', 'clear', 'stop'] # used for ordering the help command
 
+
     def set_message(self):
         help_message = """
 """
     @commands.Cog.listener()
     async def on_ready(self):
-        await self.bot.change_presence(activity=discord.Game(f"type {self.bot.command_prefix}help"))
+        logger.info(f'User {self.bot.user} (ID: {self.bot.user.id})')
 
+        
     async def show_command_help(self, ctx, command):
         cmd = self.bot.get_command(command)
         if cmd:
@@ -30,6 +36,11 @@ class help_cog(commands.Cog):
                 description="Command not found.", 
                 color=discord.Color.blue()
             ))
+
+
+    @commands.command(name="ping")
+    async def test_response_to_bot(self, ctx):
+        await ctx.send("pong")
 
     
     @commands.command(name="help", aliases=["h"], help="Displays help message for all commands or a specific command.", extras="!help, !help <command>")
