@@ -26,6 +26,6 @@ Outputs are printed as embeds (similar to other more popular music bots)
 11. Status
 
 ## How to run
-Modify the existing .env file with your discord token and prefered prefix. For example: !<command>
+Modify the existing .env file with your discord token and prefered prefix. For example: !\<command\>
 
 Programmed in Ubuntu, recommend using Docker to build and run it. 
