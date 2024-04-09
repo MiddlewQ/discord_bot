@@ -3,6 +3,12 @@
 Hi this is my discord music bot. First time using a python library to this extent. Would not recommend copying this bot. Further building on this project https://github.com/pawel02/music_bot/. Recommend watching his youtube video to gain an understanding of how it works.
 
 ## Features
+* Search Youtube videos for songs to play in discord
+* Plays songs in voice channel
+* No permission handling
+* Help class for information
+* Embed output to text channel
+* Preparation for Docker implemented
 
 ### Commands
 Most commands prints its output as embeds.
