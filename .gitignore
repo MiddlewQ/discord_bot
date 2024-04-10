@@ -1,4 +1,3 @@
 .env
 __pycache__
-logs/info.log
-logs/info_music.log
+logs/
