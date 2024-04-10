@@ -7,7 +7,7 @@ import asyncio
 import random # used for metal machine
 
 from src.utils import time_to_seconds_format, seconds_to_time_format
-from log_config import logging
+from src.settings import logging
 
 logger = logging.getLogger("music")
 

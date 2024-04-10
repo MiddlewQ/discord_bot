@@ -1,4 +1,3 @@
 __pycache__
-discord.log
-old/
-testing/
+tests/
+song_database/

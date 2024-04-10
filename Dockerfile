@@ -21,6 +21,9 @@ COPY . .
 # Pip complains about not using virtual environments
 ENV PIP_ROOT_USER_ACTION=ignore
 
+ENV PYTHONPATH /usr/src/app/src
+
+
 # Upgrade pip before installing any Python packages
 RUN pip install --upgrade pip
 
@@ -38,4 +41,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV NAME World
 
 # Run main.py when the container launches
-CMD ["python", "main.py"]
+CMD ["python", "-m", "src.main"]

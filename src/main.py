@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 from typing import Final
 
 # Logging
-from . import log_config
-logger = log_config.logging.getLogger("bot")
+from . import settings
+logger = settings.logging.getLogger("bot")
 
 # Constants
 load_dotenv()
@@ -26,6 +26,7 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 # Replace default help command with our own
 bot.remove_command("help")
+
 
 
 # Used to ignore music commands in DMs

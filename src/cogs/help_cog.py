@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from log_config import logging
+from src.settings import logging
 logger = logging.getLogger("bot")
 
 class help_cog(commands.Cog):
@@ -17,7 +17,7 @@ class help_cog(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         logger.info(f'User {self.bot.user} (ID: {self.bot.user.id})')
-
+        
         
     async def show_command_help(self, ctx, command):
         cmd = self.bot.get_command(command)
