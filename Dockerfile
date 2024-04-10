@@ -4,6 +4,10 @@ FROM python:3.10-slim-buster
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
+# Create the logs directory and the log files
+RUN mkdir -p /usr/src/app/logs && \
+    touch /usr/src/app/logs/info.log /usr/src/app/logs/info_music.log
+
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y \
