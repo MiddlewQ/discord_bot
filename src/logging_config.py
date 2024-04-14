@@ -37,28 +37,35 @@ LOGGING_CONFIG = {
             'formatter': "verbose"
         },
         'file_music': {
-            'level': "INFO",
+            'level': "DEBUG",
             'class': "logging.FileHandler",
             'filename': "logs/info_music.log",
+            'mode': 'w',
+            'formatter': 'verbose',
+        },
+        'file_errors': {
+            'level': "ERROR",
+            'class': "logging.FileHandler",
+            'filename': "logs/errors.log",
             'mode': 'w',
             'formatter': 'verbose',
         }
     },
     "loggers": {
         "bot": {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'file', 'file_errors'],
             'level': "INFO",
-            'propogate': False,
+            'propagate': False,
         },
         "discord": {
             'handlers' : ['console2', "file"],
             'level': "INFO",
-            'propogate': False,
+            'propagate': False,
         },
         "music": {
-            'handlers': ['console', 'file_music'],
-            'level': "DEBUG",
-            'propagate': 'False',
+            'handlers': ['console', 'file_music', 'file_errors'],
+            'level': "INFO",
+            'propagate': False,
         },
     }
 }

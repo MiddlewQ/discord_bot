@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 from typing import Final
 
 # Logging
-from . import settings
-logger = settings.logging.getLogger("bot")
+from . import logging_config
+logger = logging_config.logging.getLogger("bot")
 
 # Constants
 load_dotenv()

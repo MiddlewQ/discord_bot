@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from src.settings import logging
+from src.logging_config import logging
 logger = logging.getLogger("bot")
 
 class help_cog(commands.Cog):
