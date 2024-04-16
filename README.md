@@ -7,6 +7,7 @@ Hi this is my discord music bot. First time using the discord python library. Wo
 * Plays songs in voice channel
 * No permission handling
 * Help class for information
+* Queue & Help Pagination
 * Embed output to text channel
 * Preparation to run with Dockerfile
 * Logging in logs/ directory
