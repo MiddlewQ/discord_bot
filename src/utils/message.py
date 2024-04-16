@@ -76,13 +76,14 @@ class MessageStore:
 
     
     # Join command logs
-    LOG_FAILED_JOIN_USER_NOT_IN_VOICE_CHANNEL = "Join command failed: User '{user}' is not connected to a voice channel."
+    LOG_JOIN_FAILED_USER_NOT_IN_VOICE_CHANNEL = "Join command failed: User '{user}' is not connected to a voice channel."
 
     # Play & FFMPEG/yt-dlp command logs    
     LOG_PLAY_FAILED_NO_ARGS = "Play command failed: No arguments provided by '{user}'."
     LOG_PLAY_FAILED_NOT_FOUND = "Play command failed: No song found for query '{query}' by '{user}'."
-    LOG_PLAY_NEXT_REQUEST_EXECUTED = "Executed 'play next' successfully."
-    LOG_PLAY_MUSIC_EXECUTED = "Play music command executed. Now playing the requested track."
+    LOG_PLAY_FAILED_USER_NOT_IN_VOICE_CHANNEL = "Play command failed: User '{user}' not connected to a voice channel."
+    LOG_PLAY_NEXT_REQUEST_EXECUTED = "Play next command executed. Now playing '{title}'."
+    LOG_PLAY_MUSIC_EXECUTED = "Play music command executed. Now playing '{title}'."
     LOG_PLAY_ADD_TO_QUEUE_EXECUTED = "Song '{title}' added to queue. Source: {source}."
     
     # Multiplay
@@ -98,8 +99,8 @@ class MessageStore:
     LOG_RESUME_FAILED_NOT_PAUSED = "Resume command failed: No music is paused when attempted by '{user}'."
 
     # Queue commands logs
-    LOG_QUEUE_EMPTY = "Queue command response empty for '{user}'."
-    LOG_QUEUE_DISPLAYED = "Queue displayed to '{user}', showing {number_of_songs} songs."
+    LOG_QUEUE_EMPTY = "Queue command response empty in {channel}."
+    LOG_QUEUE_DISPLAYED = "Queue command response showing {number_of_songs} songs in '{channel}'."
 
     # Clear command logs
     LOG_CLEAR_EMPTY_EXECUTED = "Empty Music queue cleared by '{user}'."

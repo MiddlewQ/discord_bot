@@ -11,11 +11,11 @@ LOGGING_CONFIG = {
     "version": 1,
     "disabled_existing_loggers": False,
     "formatters": {
-        "verbose": {
-            "format": "%(levelname)-10s - %(asctime)s - %(module)-15s : %(message)s"
-        },
         "standard": {
             "format": "%(levelname)-10s - %(name)-15s : %(message)s"
+        },
+        "verbose": {
+            "format": "%(levelname)-10s - %(asctime)s - %(module)-15s : %(message)s"
         },
     },
     "handlers": {
@@ -54,7 +54,7 @@ LOGGING_CONFIG = {
     "loggers": {
         "bot": {
             'handlers': ['console', 'file', 'file_errors'],
-            'level': "INFO",
+            'level': "DEBUG",
             'propagate': False,
         },
         "discord": {
@@ -64,7 +64,7 @@ LOGGING_CONFIG = {
         },
         "music": {
             'handlers': ['console', 'file_music', 'file_errors'],
-            'level': "INFO",
+            'level': "DEBUG",
             'propagate': False,
         },
     }

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
-
-from src.logging_config import logging
+from src.utils.partionation import PaginationView
+from src.utils.logging_config import logging
 logger = logging.getLogger("bot")
 
 class help_cog(commands.Cog):
@@ -38,6 +38,22 @@ class help_cog(commands.Cog):
             ))
 
 
+    @commands.command(name="paginate")
+    async def paginate(self, ctx):
+        data = [
+
+        ]
+
+        for i in range(1,33):
+            data.append({
+                "label": "User Event",
+                "item": f"User {i} has been added"
+            })
+        print(data)
+        pagination_view = PaginationView(timeout=None)
+        pagination_view.data = data
+        await pagination_view.send(ctx, )
+
     @commands.command(name="ping")
     async def test_response_to_bot(self, ctx):
         await ctx.send("pong")
@@ -51,19 +67,21 @@ class help_cog(commands.Cog):
             return
         
         # General Help Header
-        embed = discord.Embed(
-            title="📠 General Commands",
-            description="Type `!<command>` to run any of the following commands.\nMore detailed help can be found by typing `!<command> help`.",
-            color=discord.Color.blue()
-        )
+        # embed = discord.Embed(
+        title="📠 General Commands"
+        description="Type `!<command>` to run any of the following commands.\nMore detailed help can be found by typing `!<command> help`."
         # Print all commands
-        for cmd in self.command_order:
-            cmd = self.bot.get_command(cmd)
-            embed.add_field(
-                name=f"⚙️ {cmd.name}",
-                value=cmd.help,
-                inline=False
-            )
-
-        await ctx.send(embed=embed)
+        data = {'fields': []}
+        pagination_view = PaginationView()
+        pagination_view.data = data
+        pagination_view.title = title
+        pagination_view.description = description
+        for command in self.command_order:
+            cmd = self.bot.get_command(command)
+            data['fields'].append({
+                'label': cmd.name,
+                'item': cmd.help,
+            })
+        logger.debug("Fields: ", data['fields'])
+        await pagination_view.send(ctx, )
     

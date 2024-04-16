@@ -5,9 +5,12 @@ from discord.ext import commands
 from youtubesearchpython import VideosSearch
 from yt_dlp import YoutubeDL
 
-from src.utils import *
-from src.logging_config import logging
-from src.message import MessageStore as msg
+# from src.utils import *
+from src.utils.logging_config import *
+from src.utils.message import MessageStore as msg
+from src.utils.time_convertion import *
+from src.utils.partionation import PaginationView
+from src.util import *
 
 logger = logging.getLogger("music")
 
@@ -104,12 +107,12 @@ class music_cog(commands.Cog):
         
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
-        song = data['url']
+        data['url']
 
         self.vc.play(discord.FFmpegPCMAudio(
-                song, executable= "ffmpeg", **self.FFMPEG_OPTIONS), 
+                data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), 
                 after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
-        logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED)
+        logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=data['title']))
     
     # infinite loop checking 
     async def play_music(self, ctx):
@@ -144,7 +147,7 @@ class music_cog(commands.Cog):
             loop = asyncio.get_event_loop()
             data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
             self.vc.play(discord.FFmpegPCMAudio(data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
-            logger.info(msg.LOG_PLAY_MUSIC_EXECUTED)
+            logger.info(msg.LOG_PLAY_MUSIC_EXECUTED.format(title=data['title']))
         except Exception as e:
             logger.error(e)
             await ctx.send(embed=create_embed(msg.FAIL_PLAYING_SONG))
@@ -188,28 +191,27 @@ class music_cog(commands.Cog):
     @log_activity()
     async def play(self, ctx, *args):
         if len(args) == 0:
-            logger.warning(msg.FAIL_NO_ARGS.format(user=ctx.author.name))
+            logger.warning(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=create_embed(msg.FAIL_NO_ARGS))
-
+            return
         if not ctx.author.voice or not ctx.author.voice.channel:
-            logger.warning(msg.FAIL_NOT_IN_VOICE_CHANNEL)
+            logger.warning(msg.LOG_PLAY_FAILED_USER_NOT_IN_VOICE_CHANNEL.format(user=ctx.author.name))
             await ctx.send(embed=create_embed(msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
         
         query = " ".join(args)
         song = self.search_yt(query)
         if not song:
-            logger.warning(msg.FAIL_VIDEO_NOT_FOUND)
+            logger.warning(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
             await ctx.send(embed=create_embed(msg.FAIL_VIDEO_NOT_FOUND))
             return
 
         if self.is_playing:
             await ctx.send(embed=self.add_song_info(song, ctx.author))
         else:
-            logger.info(msg.LOG_PLAY_ADD_TO_QUEUE_EXECUTED.format(title=song['title'], source=song['source']))
-            now_playing_msg = msg.NOW_PLAYING.format(title=song['title'], source=song['source'])
-            await ctx.send(embed=create_embed(now_playing_msg))  
+            await ctx.send(embed=create_embed(msg.NOW_PLAYING.format(title=song['title'], source=song['source'])))  
         
+        logger.info(msg.LOG_PLAY_ADD_TO_QUEUE_EXECUTED.format(title=song['title'], source=song['source']))
         self.music_queue.append([song, ctx.author.voice.channel])
         self.queue_duration += song['duration']
 
@@ -227,7 +229,7 @@ class music_cog(commands.Cog):
             return 
         
         searches = [search.strip() for search in query.split('|')]
-        number_of_songs = min(6, len(searches))
+        number_of_songs = min(20, len(searches))
         for i in range(number_of_songs):
             search = searches[i]
             await self.play(ctx, *search.split())
@@ -263,7 +265,7 @@ class music_cog(commands.Cog):
         channel = ctx.author.voice.channel if ctx.author.voice and ctx.author.voice.channel else 'unknown'
 
         if not ctx.author.voice or not ctx.author.voice.channel:
-            logger.warning(msg.LOG_FAILED_JOIN_USER_NOT_IN_VOICE_CHANNEL.format(user=user, channel=channel))            
+            logger.warning(msg.LOG_JOIN_FAILED_USER_NOT_IN_VOICE_CHANNEL.format(user=user, channel=channel))            
             await ctx.send(embed=create_embed(msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
         if not self.vc or not self.vc.is_connected():
@@ -292,25 +294,33 @@ class music_cog(commands.Cog):
         # Handle case no music in queue:
         if not self.current_song and not self.music_queue:
             await ctx.send(embed=create_embed(msg.QUEUE_EMPTY))
-            logger.info(msg.LOG_QUEUE_EMPTY.format(user=user))
+            logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
+        
         try:
-            # Default case, one or more in queue
+            # Less than 10 songs
             song = self.current_song[0]
-            embed = create_embed(
-                title=msg.MUSIC_QUEUE_STATUS.format(channel_name=ctx.guild.voice_client.channel.name), 
-                description=msg.NOW_PLAYING.format(title=song['title'], source=song['source']), 
-                color=discord.Color.blue())
-            
+                # For more than 10 songs, create a scrollable list view 5 items at a time
+            data = {
+                'time_label': "Estimated Total Playtime",
+                'time': f"{seconds_to_time_format(self.queue_duration)}",
+                'thumbnail': f"{ctx.guild.icon.url}",
+                'fields': [],
+            }
+            pagination_view = PaginationView()
+            pagination_view.title =  msg.MUSIC_QUEUE_STATUS.format(channel_name=ctx.guild.voice_client.channel.name) 
+            pagination_view.description = msg.NOW_PLAYING.format(title=song['title'], source=song['source'])
+            pagination_view.data = data
 
-            embed.set_thumbnail(url=self.bot.user.avatar.url)
-
-            embed.add_field(name="", value="", inline=False)  # Unicode character for an invisible separator
+            # pagination_view.set_thumbnail(url=self.bot.user.avatar.url)
             for queue_nbr, song_info in enumerate(self.music_queue, start=1):
-                embed.add_field(name="", value=f"**{queue_nbr}.** {song_info[0]['title']}", inline=False)
-
-            embed.add_field(name="Estimated Total Playtime", value=f"{seconds_to_time_format(self.queue_duration)}")
-            await ctx.send(embed=embed)
+                data['fields'].append({
+                    'label': "",
+                    'item': f"**{queue_nbr}.** {song_info[0]['title']}",
+                })
+            await pagination_view.send(ctx)
+            number_of_songs = len(self.music_queue) + 1 if self.current_song else len(self.music_queue)
+            logger.info(msg.LOG_QUEUE_DISPLAYED.format(channel=ctx.channel.name, number_of_songs=number_of_songs))
         except Exception as e:
             logger.error(e)
 
@@ -380,18 +390,14 @@ class music_cog(commands.Cog):
             logger.info()
             self.current_song = None
             self.music_queue.clear() 
-        else:
-            logger.info(msg.LOG_CLEAR_EXECUTED.format(user=ctx.author.name))
         
         self.queue_duration = 0 
 
         if self.vc:
             await self.vc.disconnect()
             self.vc = None
-        else:
-            logger.warning(msg.LOG_STOP_FAILED)
         logger.info(msg.LOG_STOP_EXECUTED.format(channel=ctx.author.voice.channel.name, user=ctx.author.name))
-    
+
 
     @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], extras=msg.HELP_USAGES['status'])
     @log_activity()
@@ -414,6 +420,6 @@ class music_cog(commands.Cog):
             description=status_description,
             color=discord.Color.blue()
         )
-        logger.info(msg.LOG_STATUS)
+        # logger.info(msg.LOG_STATUS)
         await ctx.send(embed=embed)
 

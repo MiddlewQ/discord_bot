@@ -7,13 +7,16 @@ import logging
 from src.cogs.help_cog import help_cog
 from src.cogs.music_cog import music_cog
 
+
 # Loading token from .env file
 from dotenv import load_dotenv
 from typing import Final
 
 # Logging
-from . import logging_config
-logger = logging_config.logging.getLogger("bot")
+from src.utils.logging_config import *
+from src.utils.partionation import PaginationView
+
+logger = logging.getLogger("bot")
 
 # Constants
 load_dotenv()
@@ -34,6 +37,7 @@ def in_guild(ctx):
     if ctx.guild is None:
         return False
     return True
+
 
 # Main Entry Point
 async def main():
