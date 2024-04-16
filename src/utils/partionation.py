@@ -2,6 +2,7 @@ import discord
 import math
 from discord.ext import commands
 from src.utils.logging_config import *
+from src.utils.message import MessageStore as msg
 logger = logging.getLogger("bot")
 
 class PaginationView(discord.ui.View):
@@ -16,13 +17,14 @@ class PaginationView(discord.ui.View):
 
     def create_embed(self):
         current_page_data = self.get_current_page_data()
-        embed = discord.Embed(title=f"{self.title} {self.current_page} / {min(1,math.ceil(len(self.data['fields']) / self.sep))}", description=self.description)
+        embed = discord.Embed(title=f"{self.title} {self.current_page} / {max(1,math.ceil(len(self.data['fields']) / self.sep))}", description=self.description)
         for item in current_page_data:
             embed.add_field(name=item['label'], value=item['item'], inline=False)
-        if self.data['thumbnail']:
+        if 'thumbnail' in self.data:
             embed.set_thumbnail(url=self.data['thumbnail'])
-        if self.data['time_label']:
+        if 'time_label' in self.data:
             embed.add_field(name=self.data['time_label'], value=self.data['time'], inline=False)
+        logger.info(msg.LOG_PAGINATOR_EXECUTED.format(page=self.current_page))
         return embed
 
     async def update_message(self):
@@ -64,7 +66,6 @@ class PaginationView(discord.ui.View):
 
             from_item = self.current_page * self.sep - self.sep
             until_item = len(self.data['fields'])
-        print(f"from {from_item} until {until_item}")
         return self.data['fields'][from_item:until_item]
 
 

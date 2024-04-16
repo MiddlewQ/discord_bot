@@ -120,7 +120,6 @@ class MessageStore:
     LOG_SKIP_FAILED_BOT_ABSENT = "Skip command failed: User '{user}' attempted to skip song in channel '{channel}' but the voice connection is not active."
     LOG_SKIP_FAILED_NO_MUSIC = "Skip command failed: User '{user}' attempted to skip song in channel '{channel}' but no song is currently playing and the queue is empty."
 
-    
 
     LOG_CONNECTED_TO_CHANNEL = "Bot connected to voice channel '{channel}'."
     LOG_MOVED_TO_CHANNEL = "Bot moved to another channel '{channel}'."
@@ -129,3 +128,6 @@ class MessageStore:
     LOG_ALREADY_IN_CHANNEL = "User '{user}' attempted to join the same channel where the bot is already connected."
 
     LOG_STATUS_EXECUTED = "User '{user}' executed status command in '{channel_name}'."
+
+    # LOG PAGINATION
+    LOG_PAGINATOR_EXECUTED = "Pagination view executed. viewing page {page}."
