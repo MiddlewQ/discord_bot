@@ -31,7 +31,6 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 bot.remove_command("help")
 
 
-
 # Used to ignore music commands in DMs
 def in_guild(ctx):
     if ctx.guild is None:

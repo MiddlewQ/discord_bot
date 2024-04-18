@@ -32,12 +32,12 @@ class MessageStore:
     }
     
     # Discord messages
+    BOT_CHANNEL_CONNECTED = ":gear: Connected to {channel}."
+    BOT_CHANNEL_MOVED = ":gear: Moved to {channel}."
     FAIL_USER_NOT_IN_VOICE_CHANNEL = ":gear: You need to be connected to a voice channel."
     FAIL_BOT_NOT_IN_VOICE_CHANNEL = ":gear: Not in a voice channel"
     FAIL_BOT_NOT_CONNECTED = ":gear: I am not connected to a voice channel."
-    FAIL_NO_MUSIC_PLAYING = ":gear: There's no song playing to skip."
-
-    FAIL_NO_ARGS = ":gear: No arguments were provided. Please specify a song or URL to play."
+    FAIL_BOT_ALREADY_CONNECTED = ":gear: Already connected to {channel}."
 
     # Join - Empty so far
     FAIL_PLAYING_SAME_CHANNEL = ":gear: I am already playing music in this voice channel."
@@ -46,8 +46,10 @@ class MessageStore:
 
     # Play / Playing / Multiplay
     NOW_PLAYING = ":gear: **Now Playing** [{title}]({source})"
+    PLAY_NEXT = ":gear: Started Playing[{title}]({source})"
     PLAYING = ":gear: Currently playing: [{title}]({source})"
     FAIL_PLAYING_SONG = ":gear: Error playing song."
+    FAIL_NO_ARGS = ":gear: No arguments were provided. Please specify a song or URL to play."
 
     # Search Youtube & FFMPEG
     FAIL_INCORRECT_FORMAT = ":gear: Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format."
@@ -56,13 +58,14 @@ class MessageStore:
     PAUSED = ":gear: Paused."
 
     # Skip
-    SONG_SKIPPED = ":gear: [{title}]({source}) was skipped."
+    SKIP_SONG = ":gear: [{title}]({source}) was skipped."
+    FAIL_SKIP_SONG = ":gear: There's no song playing to skip."
 
     # Queue / Clear
-    MUSIC_QUEUE_STATUS = 'Music Queue | {channel_name}'
+    QUEUE_STATUS = 'Music Queue | {channel_name}'
     QUEUE_EMPTY = ":gear: Queue is empty."
     QUEUE_CLEARED = ":gear: Queue cleared."
-    FAIL_NO_MUSIC_IN_QUEUE = ":gear: No music in queue."
+    FAIL_QUEUE_EMPTY = ":gear: No music in queue."
 
     # Remove
     REMOVED_QUEUE_LAST = ":gear: Removed last song of list"
@@ -76,26 +79,33 @@ class MessageStore:
 
     
     # Join command logs
-    LOG_JOIN_FAILED_USER_NOT_IN_VOICE_CHANNEL = "Join command failed: User '{user}' is not connected to a voice channel."
+    LOG_JOIN_CHANNEL_CONNECT            = "Join command executed: Connected to new voice channel '{channel}'."
+    LOG_JOIN_CHANNEL_MOVE               = "Join command executed: Moved voice channel from '{old}' to '{new}'."
+    LOG_JOIN_FAILED_USER_ABSENT         = "Join command failed: User '{user}' is not connected to a voice channel."
+    LOG_JOIN_FAILED_USER_CHANNEL_SAME   = "Join command failed: User '{user}' tried to switch to same channel."
+    LOG_JOIN_FAILED_USER_CHANNEL_OTHER  = "Join command failed: User '{user}' tried to connect while the bot is already playing music in another channel."
 
     # Play & FFMPEG/yt-dlp command logs    
-    LOG_PLAY_FAILED_NO_ARGS = "Play command failed: No arguments provided by '{user}'."
-    LOG_PLAY_FAILED_NOT_FOUND = "Play command failed: No song found for query '{query}' by '{user}'."
-    LOG_PLAY_FAILED_USER_NOT_IN_VOICE_CHANNEL = "Play command failed: User '{user}' not connected to a voice channel."
-    LOG_PLAY_NEXT_REQUEST_EXECUTED = "Play next command executed. Now playing '{title}'."
-    LOG_PLAY_MUSIC_EXECUTED = "Play music command executed. Now playing '{title}'."
-    LOG_PLAY_ADD_TO_QUEUE_EXECUTED = "Song '{title}' added to queue. Source: {source}."
+    LOG_PLAY_MUSIC_EXECUTED             = "Play music command executed: Now playing '{title}'."
+    LOG_PLAY_ADD_TO_QUEUE_EXECUTED      = "Play command executed: Song '{title}' added to queue. Source: {source}."
+    LOG_PLAY_FAILED_USER_ABSENT         = "Play command failed: User '{user}' not connected to a voice channel."
+    LOG_PLAY_FAILED_USER_CHANNEL_SAME   = "Play command failed: User '{user}' tried to switch channel while already playing music in the same channel."
+    LOG_PLAY_FAILED_USER_CHANNEL_OTHER  = "Play command failed: User '{user}' tried to connect while the bot is already playing music in another channel."
+    
+    LOG_PLAY_FAILED_NO_ARGS             = "Play command failed: No arguments provided by '{user}'."
+    LOG_PLAY_FAILED_NOT_FOUND           = "Play command failed: No song found for query '{query}' by '{user}'."
+    LOG_PLAY_NEXT_REQUEST_EXECUTED      = "Play next command executed: Now playing '{title}'."
     
     # Multiplay
-    LOG_MULTIPLAY_EXECUTED = "Multiplay command executed. {number_of_songs} songs added to the queue."
+    LOG_MULTIPLAY_EXECUTED       = "Multiplay command executed: {number_of_songs} songs added to the queue."
     LOG_MULTIPLAY_FAILED_NO_ARGS = "Multiplay command failed: No arguments provided by '{user}'."
-    # Play command logs
-    LOG_PAUSE_EXECUTED = "Music playback paused by '{user}'."
+
+    # Pause command logs
+    LOG_PAUSE_EXECUTED = "Pause command executed: Paused by '{user}'."
     LOG_PAUSE_FAILED_NOT_PLAYING = "Pause command failed: No music is playing when attempted by '{user}'."
 
     # Resume command logs
-    LOG_PAUSE_EXECUTED = "Music playback paused by '{user}'."
-    LOG_RESUME_EXECUTED = "Music playback resumed by '{user}'."
+    LOG_RESUME_EXECUTED = "Resume command executed: Resumed by '{user}'."
     LOG_RESUME_FAILED_NOT_PAUSED = "Resume command failed: No music is paused when attempted by '{user}'."
 
     # Queue commands logs
@@ -112,6 +122,7 @@ class MessageStore:
     LOG_REMOVE_LAST_EXECUTED = "Removed last song at index {index} by '{user}'"
     # Stop command logs
     LOG_STOP_EXECUTED = "Music playback stopped, queue cleared and disconnect form '{channel}' by'{user}'."
+    LOG_STOP_CLEAR = "Cleared queue while stopping"
     LOG_STOP_FAILED = ""
 
     # Skip Log
@@ -123,8 +134,6 @@ class MessageStore:
 
     LOG_CONNECTED_TO_CHANNEL = "Bot connected to voice channel '{channel}'."
     LOG_MOVED_TO_CHANNEL = "Bot moved to another channel '{channel}'."
-    LOG_FAILED_PLAYING_SAME_CHANNEL = "User '{user}' tried to switch channel while already playing music in the same channel."
-    LOG_FAILED_PLAYING_OTHER_CHANNEL = "User '{user}' tried to connect while the bot is already playing music in another channel."
     LOG_ALREADY_IN_CHANNEL = "User '{user}' attempted to join the same channel where the bot is already connected."
 
     LOG_STATUS_EXECUTED = "User '{user}' executed status command in '{channel_name}'."
