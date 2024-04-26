@@ -110,7 +110,6 @@ class music_cog(commands.Cog):
         
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
-        data['url']
 
         self.vc.play(discord.FFmpegPCMAudio(
                 data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), 
@@ -344,7 +343,7 @@ class music_cog(commands.Cog):
         # Removes last if no arg given
         if len(args) == 0:
             self.music_queue.pop()
-            logger.info(msg.LOG_REMOVE_LAST_EXECUTED.format(index=len(self.music_queue, user={ctx.author.name})))
+            logger.info(msg.LOG_REMOVE_LAST_EXECUTED.format(index=len(self.music_queue), user={ctx.author.name}))
             await ctx.send(embed=discord.Embed(description=msg.REMOVED_LAST))
             return
         
