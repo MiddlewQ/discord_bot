@@ -92,7 +92,7 @@ class music_cog(commands.Cog):
     async def on_command(self, ctx):
         logger.info(f"{ctx.command.name.capitalize()} command requested: User {ctx.author.name} in {ctx.channel.name}")
 
-    async def play_next(self, ctx):
+    async def play_next(self):
 
         if len(self.music_queue) == 0:
             self.is_playing = False
@@ -112,10 +112,9 @@ class music_cog(commands.Cog):
         data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
         data['url']
 
-        await ctx.send(msg.PLAY_NEXT.format(title=data['title'], source=data['source']))
         self.vc.play(discord.FFmpegPCMAudio(
                 data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), 
-                after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop))
+                after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
         logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=data['title']))
     
     # infinite loop checking 
@@ -150,7 +149,7 @@ class music_cog(commands.Cog):
         try:
             loop = asyncio.get_event_loop()
             data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
-            self.vc.play(discord.FFmpegPCMAudio(data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop))
+            self.vc.play(discord.FFmpegPCMAudio(data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
             logger.info(msg.LOG_PLAY_MUSIC_EXECUTED.format(title=data['title']))
         except Exception as e:
             logger.error(e)
