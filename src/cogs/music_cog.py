@@ -148,7 +148,9 @@ class music_cog(commands.Cog):
         try:
             loop = asyncio.get_event_loop()
             data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
-            self.vc.play(discord.FFmpegPCMAudio(data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
+            song = data['url']
+            self.vc.play(discord.FFmpegPCMAudio(song, executable= "ffmpeg", **self.FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
+            
             logger.info(msg.LOG_PLAY_MUSIC_EXECUTED.format(title=data['title']))
         except Exception as e:
             logger.error(e)
@@ -188,7 +190,6 @@ class music_cog(commands.Cog):
             logger.warning(msg.LOG_PLAY_FAILED_USER_CHANNEL_SAME.format(user=ctx.author.name))
             
 
-
     @commands.command(name="play", aliases=["p", "pl"], help=msg.HELP_MESSAGES['play'], extras=msg.HELP_USAGES['play'])
     async def play(self, ctx, *args):
         if len(args) == 0:
@@ -202,9 +203,15 @@ class music_cog(commands.Cog):
         
         query = " ".join(args)
         song = self.search_yt(query)
+
         if not song:
             logger.warning(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_NOT_FOUND))
+            return
+
+        if song['duration'] > 1200:
+            logger.warning(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_TOO_LONG))
             return
 
         if self.is_playing:
@@ -214,7 +221,7 @@ class music_cog(commands.Cog):
         
         logger.info(msg.LOG_PLAY_ADD_TO_QUEUE_EXECUTED.format(title=song['title'], source=song['source']))
         self.music_queue.append([song, ctx.author.voice.channel])
-        self.queue_duration += song['duration']
+        self.queue_duration += song['duration'] 
 
         if self.is_playing == False:
             await self.play_music(ctx)
@@ -234,6 +241,7 @@ class music_cog(commands.Cog):
             search = searches[i]
             await self.play(ctx, *search.split())
         logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(number_of_songs=number_of_songs))
+
 
     @commands.command(name="pause", help="Pauses the current song being played.", extras="!pause")
     async def pause(self, ctx, *args):
@@ -256,6 +264,7 @@ class music_cog(commands.Cog):
             logger.info(msg.LOG_RESUME_EXECUTED.format(user=user))
         logger.warning(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=user))
 
+
     @commands.command(name="skip", aliases=["s"], help=msg.HELP_MESSAGES['skip'], extras=msg.HELP_USAGES['skip'])
     async def skip(self, ctx):
         user = ctx.author.name
@@ -265,10 +274,12 @@ class music_cog(commands.Cog):
             logger.warning(msg.LOG_JOIN_FAILED_USER_ABSENT.format(user=user, channel=channel))            
             await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
+        
         if not self.vc or not self.vc.is_connected():
             logger.warning(msg.LOG_SKIP_FAILED_BOT_ABSENT.format(user=user, channel=channel))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_IN_VOICE_CHANNEL))
             return
+        
         if not self.current_song and not self.music_queue:
             logger.warning(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=channel))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
@@ -342,9 +353,11 @@ class music_cog(commands.Cog):
         
         # Removes last if no arg given
         if len(args) == 0:
-            self.music_queue.pop()
+            song = self.music_queue.pop()[0]
+            self.queue_duration -= song['duration']
+            
             logger.info(msg.LOG_REMOVE_LAST_EXECUTED.format(index=len(self.music_queue), user={ctx.author.name}))
-            await ctx.send(embed=discord.Embed(description=msg.REMOVED_LAST))
+            await ctx.send(embed=discord.Embed(description=msg.REMOVED_QUEUE_LAST))
             return
         
         # Try to remove at the input index (queue starts at 1 for user)
@@ -400,7 +413,7 @@ class music_cog(commands.Cog):
         status_description = (    
             f"Playing: {self.is_playing}\n"
             f"Paused: {self.is_paused}\n"
-            # f"Current Song: {self.current_song[0]['title'] if self.current_song else 'None'}\n"           | Not used, do !queue instead
+            f"Current Song: {self.current_song[0]['title'] if self.current_song else 'None'}\n"           # | Not used, do !queue instead
             # f"Queue: {', '.join(songs)}\n"  # Join the song URLs with a comma and a space
             f"Queue Duration: {self.queue_duration}\n"
             f"Voice Channel: {self.vc.channel.name if self.vc and self.vc.is_connected() else 'Not connected'}"

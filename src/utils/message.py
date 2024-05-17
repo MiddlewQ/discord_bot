@@ -49,6 +49,8 @@ class MessageStore:
     PLAY_NEXT = ":gear: Started Playing[{title}]({source})"
     PLAYING = ":gear: Currently playing: [{title}]({source})"
     FAIL_PLAYING_SONG = ":gear: Error playing song."
+    FAIL_VIDEO_NOT_FOUND = ":gear: Could not find any video."
+    FAIL_VIDEO_TOO_LONG = ":gear: Max video length: 20 minutes."
     FAIL_NO_ARGS = ":gear: No arguments were provided. Please specify a song or URL to play."
 
     # Search Youtube & FFMPEG
@@ -94,6 +96,7 @@ class MessageStore:
     
     LOG_PLAY_FAILED_NO_ARGS             = "Play command failed: No arguments provided by '{user}'."
     LOG_PLAY_FAILED_NOT_FOUND           = "Play command failed: No song found for query '{query}' by '{user}'."
+    LOG_PLAY_FAILED_TOO_LONG            = "Play command failed: Song requested by {user} is too long"
     LOG_PLAY_NEXT_REQUEST_EXECUTED      = "Play next command executed: Now playing '{title}'."
     
     # Multiplay
