@@ -291,7 +291,6 @@ class music_cog(commands.Cog):
             self.vc.stop()
             await ctx.send(embed=discord.Embed(description=msg.SKIP_SONG.format(title=title, source=source)))
             logger.info(msg.LOG_SONG_SKIPPED.format(title=title, user=user, guild=ctx.guild.name))
-            await self.play_music(ctx)
         except Exception as e:
             logger.error(e)
 
@@ -391,12 +390,12 @@ class music_cog(commands.Cog):
         self.is_paused = False
     
         # Clear the current song and the music queue
-        if self.current_song and self.music_queue:
-            logger.info(msg.LOG_STOP_CLEARED_QUEUE)
+        if self.current_song or self.music_queue:
+            logger.info(msg.LOG_STOP_EXECUTED)
             self.current_song = None
-            self.music_queue.clear() 
+            self.music_queue.clear()    
+            self.queue_duration = 0     
         
-        self.queue_duration = 0 
 
         if self.vc:
             await self.vc.disconnect()
