@@ -28,6 +28,33 @@ Outputs are printed as embeds (similar to other more popular music bots)
 11. Status
 
 ## How to run
-Modify the existing .env file with your discord token and prefered prefix. For example: !\<command\>
 
-Run natively or using the Docker file, both should work. 
+Edit the `.env` file with your Discord token and preferred command prefix (for example `!<command>`).
+
+### Docker
+
+This bot can be run in most Linux environments, but Docker is the easiest way to avoid dependency issues.
+
+Build the image, then run it:
+
+```sh
+docker build -t discord_bot .
+
+# run (uses .env)
+docker rm -f discord_bot 2>/dev/null || true
+docker run -d --name discord_bot --env-file .env discord_bot:latest
+
+# follow logs
+docker logs -f discord_bot
+```
+Logs are also saved to files in `logs/` in the container.
+
+#### (Optional) Persist logs to your host machine:
+
+```sh
+mkdir -p logs
+docker run -d --name discord_bot --env-file .env \
+  -v "$PWD/logs:/usr/src/app/logs" \
+  discord_bot:latest
+```
+
