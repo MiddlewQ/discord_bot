@@ -23,7 +23,8 @@ class music_cog(commands.Cog):
         self.queue_duration = 0
         self.logger = logger
         
-        self.YDL_OPTIONS = {'format': 'bestaudio[ext=m4a]/bestaudio/best', "noplaylist": True}
+        self.YDL_OPTIONS = {'format': 'bestaudio[ext=m4a]/bestaudio/best', 
+                            'noplaylist': True}
         self.FFMPEG_OPTIONS = {'options':        '-vn', 
                                'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5' }
 
@@ -59,18 +60,25 @@ class music_cog(commands.Cog):
         return embed
         
 
-    def search_yt(self, query):
-        if not query.startswith("http"):     
-            query = f"ytsearch:{query}"
+    async def search_yt(self, query):
+        loop = asyncio.get_running_loop()
 
-        info = self.ytdl.extract_info(query, download=False)
+        if query.startswith("http"):
+            info = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(query, download=False))
+            entry = info if isinstance(info, dict) else None
+        else:
+            info = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(f"ytsearch1:{query}", download=False))
+            entries = info.get("entries") if isinstance(info, dict) else None
+            entry = entries[0] if isinstance(entries, list) and entries else None
 
-        if not info:
+        if not isinstance(entry, dict):
             return None
 
-        entry = info.get("entries")[0]
-        if not entry:
-            return None
+        entries = info.get("entries")
+        if isinstance(entries, list) and entries:
+            entry = entries[0]
+        else:
+            entry = info if info.get("webpage_url") or info.get("url") else None
 
         thumb = entry.get("thumbnail")
         if not thumb:
@@ -133,11 +141,11 @@ class music_cog(commands.Cog):
         m_url = self.music_queue[0][0]['source']
         
         # Try to connect to voice channel if you are not already connected
-        if self.vc == None or not self.vc.is_connected():
+        if self.vc is None or not self.vc.is_connected():
             self.vc = await self.music_queue[0][1].connect()
 
             #in case we fail to connect
-            if self.vc == None:
+            if self.vc is None:
                 await ctx.send(embed=discord.Embed(description=msg.FAIL_CONNECT_TO_VOICE_CHANNEL))
                 return
         else:
@@ -206,9 +214,9 @@ class music_cog(commands.Cog):
             return
         
         query = " ".join(args)
-        song = self.search_yt(query)
+        song = await self.search_yt(query)
 
-        if not song:
+        if song is None:
             logger.warning(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_NOT_FOUND))
             return
