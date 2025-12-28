@@ -23,8 +23,9 @@ class music_cog(commands.Cog):
         self.queue_duration = 0
         self.logger = logger
         
-        self.YDL_OPTIONS = {'format': 'bestaudio/best'}
-        self.FFMPEG_OPTIONS = {'options': '-vn', 'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'}
+        self.YDL_OPTIONS = {'format': 'bestaudio[ext=m4a]/bestaudio/best', "noplaylist": True}
+        self.FFMPEG_OPTIONS = {'options':        '-vn', 
+                               'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -http_persistent 0' }
 
         self.text_channel = None
         self.vc = None
@@ -61,8 +62,6 @@ class music_cog(commands.Cog):
     def search_yt(self, query):
         if not query.startswith("http"):     
             query = f"ytsearch:{query}"
-         
-        
 
         info = self.ytdl.extract_info(query, download=False)
 
@@ -100,16 +99,21 @@ class music_cog(commands.Cog):
             self.queue_duration = 0
             self.current_song = None
             return
+        
         self.is_playing = True
         
-        m_url = self.music_queue[0][0]['source']
+        next_item = self.music_queue.pop(0)
+        next_song = next_item[0]
+        self.current = next_item
         #remove the first element as you are currently playing it
 
-        self.queue_duration -= self.current_song[0]['duration']
+        self.queue_duration -= max(0, self.queue_duration - (next_song.get('duration') or 0))
         self.current_song = self.music_queue.pop(0)
-        
+
+        query = next_song['source']
+
         loop = asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
+        data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(query, download=False))
 
         self.vc.play(discord.FFmpegPCMAudio(
                 data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), 
@@ -157,7 +161,7 @@ class music_cog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SONG))
 
 
-    @commands.command(name="join", alias=['connect'], help=msg.HELP_MESSAGES['join'], extras=msg.HELP_USAGES['join'])
+    @commands.command(name="join", aliases=['connect'], help=msg.HELP_MESSAGES['join'], extras=msg.HELP_USAGES['join'])
     async def join(self, ctx, *args):
         if not ctx.author.voice:    # Check if author is connected to a channel
             await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
@@ -251,7 +255,7 @@ class music_cog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=":gear: Paused."))
             self.vc.pause()
         else:
-            self.resume(ctx, *args)
+            await self.resume(ctx, *args)
 
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], extras=msg.HELP_USAGES['resume'])
@@ -262,7 +266,8 @@ class music_cog(commands.Cog):
             self.is_playing = True
             self.vc.resume()
             logger.info(msg.LOG_RESUME_EXECUTED.format(user=user))
-        logger.warning(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=user))
+        else:
+            logger.warning(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=user))
 
 
     @commands.command(name="skip", aliases=["s"], help=msg.HELP_MESSAGES['skip'], extras=msg.HELP_USAGES['skip'])
@@ -333,13 +338,13 @@ class music_cog(commands.Cog):
 
     @commands.command(name="playing", aliases=["np"], help=msg.HELP_MESSAGES['playing'], extras=msg.HELP_USAGES['playing'])
     async def playing(self, ctx):
+        title = self.current_song[0]['title']
+        source = self.current_song[0]['source']
         if self.is_playing:
-            playing_msg = msg.PLAYING.format(title=self.current_song[0]['title'], source=self.current_song[0]['title'])
+            playing_msg = msg.PLAYING.format(title=title, source=source)
             await ctx.send(embed=discord.Embed(description=playing_msg))
             return
         
-        title = self.current_song[0]['title']
-        source = self.current_song[0]['source']
         await ctx.send(embed=discord.Embed(description=msg.PLAYING.format(title=title, source=source)))
 
 
@@ -355,7 +360,7 @@ class music_cog(commands.Cog):
             song = self.music_queue.pop()[0]
             self.queue_duration -= song['duration']
             
-            logger.info(msg.LOG_REMOVE_LAST_EXECUTED.format(index=len(self.music_queue), user={ctx.author.name}))
+            logger.info(msg.LOG_REMOVE_LAST_EXECUTED.format(index=len(self.music_queue), user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.REMOVED_QUEUE_LAST))
             return
         
@@ -381,7 +386,10 @@ class music_cog(commands.Cog):
         self.music_queue = []
         self.current_song = None
         self.queue_duration = 0
-        logger.info(msg.LOG_CLEAR_EXECUTED.format(user=ctx.author.name))
+        user = ctx.author.name
+        if user is None:
+            user = "<Unknown>"
+        logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
         await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
 
     @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], extras=msg.HELP_USAGES['stop'])
