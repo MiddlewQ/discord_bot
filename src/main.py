@@ -10,11 +10,9 @@ from src.cogs.music_cog import music_cog
 
 # Loading token from .env file
 from dotenv import load_dotenv
-from typing import Final
 
 # Logging
 from src.utils.logging_config import *
-from src.utils.partionation import PaginationView
 
 logger = logging.getLogger("bot")
 
