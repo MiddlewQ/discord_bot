@@ -2,7 +2,6 @@ import discord
 # import functools
 import asyncio
 from discord.ext import commands
-from youtubesearchpython import VideosSearch
 from yt_dlp import YoutubeDL
 
 # from src.utils import *
@@ -59,34 +58,35 @@ class music_cog(commands.Cog):
         return embed
         
 
-    def search_yt(self, item):
-        if item.startswith("https://"):
-            search = self.ytdl.extract_info(item, download=False)
-            if not search:
-                return None
-            video_info = {
-                'source': item,
-                'title': search['title'],
-                'thumbnail': search['thumbnail'],
-                'duration': search['duration']
-            }
-            return video_info
-        # if item contains 'sabaton' lower- or upper-case have a 30 percent of playing metal machine
-
+    def search_yt(self, query):
+        if not query.startswith("http"):     
+            query = f"ytsearch:{query}"
+         
         
-        search = VideosSearch(item, limit=1)
-        if not search.result()['result']:
+
+        info = self.ytdl.extract_info(query, download=False)
+
+        if not info:
             return None
-        result = search.result()['result'][0]
 
-        
-        video_info = {
-            'source': result['link'],
-            'title': result['title'],
-            'thumbnail': result['thumbnails'][0]['url'],
-            'duration': time_to_seconds_format(result['duration'])
+        entry = info.get("entries")[0]
+        if not entry:
+            return None
+
+        thumb = entry.get("thumbnail")
+        if not thumb:
+            thumbs = entry.get("thumbnails") or []
+            if thumbs:
+                last_url = thumbs[-1].get("url")
+                first_url = thumbs[0].get("url")
+                thumb = last_url if last_url else first_url
+
+        return {
+            'source': entry.get('webpage_url') or entry.get("original_url"),
+            'title': entry.get('title'),
+            'thumbnail': thumb,
+            'duration': entry.get('duration') or 0,
         }
-        return video_info
 
     @commands.Cog.listener()
     async def on_command(self, ctx):
