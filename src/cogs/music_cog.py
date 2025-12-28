@@ -25,7 +25,7 @@ class music_cog(commands.Cog):
         
         self.YDL_OPTIONS = {'format': 'bestaudio[ext=m4a]/bestaudio/best', "noplaylist": True}
         self.FFMPEG_OPTIONS = {'options':        '-vn', 
-                               'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -http_persistent 0' }
+                               'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5' }
 
         self.text_channel = None
         self.vc = None
