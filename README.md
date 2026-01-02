@@ -41,7 +41,6 @@ Build the image, then run it:
 docker build -t discord_bot .
 
 # run (uses .env)
-docker rm -f discord_bot 2>/dev/null || true
 docker run -d --name discord_bot --env-file .env discord_bot:latest
 
 # follow logs
