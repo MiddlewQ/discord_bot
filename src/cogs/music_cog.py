@@ -115,25 +115,43 @@ class music_cog(commands.Cog):
             self.current_song = None
             return
         
+        if self.vc is None:
+            logger.warning("Tried to play next song, but voice client is None")
+            self.is_playing = False
+            return
+        
         self.is_playing = True
         
         next_item = self.music_queue.pop(0)
         next_song = next_item[0]
         self.current_song = next_item
         
-        #remove the first element as you are currently playing it
 
-        self.queue_duration -= max(0, self.queue_duration - (next_song.get('duration') or 0))
+        self.queue_duration -= next_song.get("duration") or 0
 
         query = next_song['source']
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(query, download=False))
 
-        self.vc.play(discord.FFmpegPCMAudio(
-                data['url'], executable= "ffmpeg", **self.FFMPEG_OPTIONS), 
-                after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
-        logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=data['title']))
+        if not isinstance(data, dict):
+            logger.warning("yt-dlop return invalid data")
+            await self.play_next()
+            return
+        url = data.get("url")
+        if not isinstance(url, str):
+            logger.warning("Could not get audio URL from yt-dlp result")
+            await self.play_next()
+            return
+        
+        title = data.get("title") or "Unknown title"
+
+        self.vc.play(
+            discord.FFmpegPCMAudio(
+                url, executable= "ffmpeg", **self.FFMPEG_OPTIONS), 
+                after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop)
+        )
+        logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=title))
     
     # infinite loop checking 
     async def play_music(self, ctx):
@@ -383,10 +401,22 @@ class music_cog(commands.Cog):
         try:
             index = int(args[0]) - 1
             song = self.music_queue[index][0]
-            self.queue_duration -= self.music_queue[index][0]['duration']
+
+            duration = song.get("duration") or 0
+            title = song.get("title") or "Unknown title"
+            
+            self.queue_duration = max(0, self.queue_duration - duration)
             self.music_queue.pop(index)
-            logger.info(msg.REMOVED_QUEUE_INDEX.format(index=index))
-            await ctx.send(embed=discord.Embed(description=msg.SONG_REMOVED.format(title=song['title'])))
+            logger.info(msg.REMOVED_QUEUE_INDEX.format(index=index + 1))
+            self.music_queue.pop(index)
+
+
+            await ctx.send(
+                embed=discord.Embed(
+                    description=msg.SONG_REMOVED.format(title=song['title'])
+                )
+            )
+
         except Exception as e:
             logger.error(e)
             await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
