@@ -407,18 +407,18 @@ class music_cog(commands.Cog):
             
             self.queue_duration = max(0, self.queue_duration - duration)
             self.music_queue.pop(index)
-            logger.info(msg.REMOVED_QUEUE_INDEX.format(index=index + 1))
-            self.music_queue.pop(index)
 
+            logger.info(msg.REMOVED_QUEUE_INDEX.format(index=index + 1))
 
             await ctx.send(
                 embed=discord.Embed(
-                    description=msg.SONG_REMOVED.format(title=song['title'])
+                    description=msg.SONG_REMOVED.format(title=title)
                 )
             )
-
-        except Exception as e:
-            logger.error(e)
+        except (ValueError, IndexError):
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
+        except Exception:
+            logger.error("Failed to remove song from queue")
             await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
         
 
