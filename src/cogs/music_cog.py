@@ -112,11 +112,11 @@ class music_cog(commands.Cog):
         
         next_item = self.music_queue.pop(0)
         next_song = next_item[0]
-        self.current = next_item
+        self.current_song = next_item
+        
         #remove the first element as you are currently playing it
 
         self.queue_duration -= max(0, self.queue_duration - (next_song.get('duration') or 0))
-        self.current_song = self.music_queue.pop(0)
 
         query = next_song['source']
 
