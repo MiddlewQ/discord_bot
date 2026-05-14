@@ -1,5 +1,4 @@
 import discord
-# import functools
 import asyncio
 from discord.ext import commands
 from yt_dlp import YoutubeDL
@@ -63,30 +62,38 @@ class music_cog(commands.Cog):
     async def search_yt(self, query):
         loop = asyncio.get_running_loop()
 
-        if query.startswith("http"):
-            info = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(query, download=False))
-            entry = info if isinstance(info, dict) else None
-        else:
-            info = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(f"ytsearch1:{query}", download=False))
-            entries = info.get("entries") if isinstance(info, dict) else None
-            entry = entries[0] if isinstance(entries, list) and entries else None
+        search_query = query if query.startswith("http") else f"ytsearch1:{query}"
 
-        if not isinstance(entry, dict):
+        info = await loop.run_in_executor(
+            None,
+            lambda: self.ytrdl.extract_info(search_query, download=False)
+        )
+
+        if not isinstance(info, dict):
             return None
 
         entries = info.get("entries")
+
         if isinstance(entries, list) and entries:
-            entry = entries[0]
+            maybe_entry = entries[0]
         else:
-            entry = info if info.get("webpage_url") or info.get("url") else None
+            maybe_entry = info if info.get("webpage_url") or info.get("url") else None
+
+        if not isinstance(maybe_entry, dict):
+            return None
+        entry = maybe_entry 
 
         thumb = entry.get("thumbnail")
         if not thumb:
             thumbs = entry.get("thumbnails") or []
-            if thumbs:
-                last_url = thumbs[-1].get("url")
-                first_url = thumbs[0].get("url")
-                thumb = last_url if last_url else first_url
+            if isinstance(thumbs, list) and thumbs:
+                first = thumbs[0]
+                last = thumbs[-1]
+
+                first_url = thumbs[0].get("url") if isinstance(first, dict) else None
+                last_url = first.get("url") if isinstance(last, dict) else None
+
+                thumb = first_url or last_url
 
         return {
             'source': entry.get('webpage_url') or entry.get("original_url"),
