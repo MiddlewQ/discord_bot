@@ -66,7 +66,7 @@ class music_cog(commands.Cog):
 
         info = await loop.run_in_executor(
             None,
-            lambda: self.ytrdl.extract_info(search_query, download=False)
+            lambda: self.ytdl.extract_info(search_query, download=False)
         )
 
         if not isinstance(info, dict):
