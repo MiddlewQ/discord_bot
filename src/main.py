@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
-import os, asyncio
+import os, sys
+import asyncio
 import logging
 
 #import all of the cogs
@@ -14,42 +15,41 @@ from dotenv import load_dotenv
 # Logging
 from src.utils.logging_config import *
 
-logger = logging.getLogger("bot")
 
-# Constants
-load_dotenv()
-TOKEN  = os.getenv('DISCORD_TOKEN')
-PREFIX = os.getenv('COMMAND_PREFIX')
+async def run_bot(prefix, token, logger):
+    intents = discord.Intents.default()
+    intents.message_content = True
 
-intents = discord.Intents.default()
-intents.message_content = True  # Enable the message content intent
-bot = commands.Bot(command_prefix=PREFIX, intents=intents)
-
-# Replace default help command with our own
-bot.remove_command("help")
-
-
-# Used to ignore music commands in DMs
-def in_guild(ctx):
-    if ctx.guild is None:
-        return False
-    return True
-
-
-# Main Entry Point
-async def main():
+    bot = commands.Bot(command_prefix=prefix, intents=intents)
+    bot.remove_command("help")
+    
     async with bot:
-        h_cog = help_cog(bot)
-        m_cog = music_cog(bot)
-        m_cog.cog_check(in_guild)
 
-        await bot.add_cog(h_cog)
+        await bot.add_cog(help_cog(bot))
         logger.info("Help cog initialized and added to the bot.")
 
-        await bot.add_cog(m_cog)
+        await bot.add_cog(music_cog(bot))
         logger.info("Music cog has been initialized and added to the bot.")
         
-        await bot.start(TOKEN)
+        await bot.start(token)
+
+async def main():
+    load_dotenv()
+
+    token = os.getenv("DISCORD_TOKEN")
+    prefix = os.getenv("COMMAND_PREFIX")
+    
+    if prefix is None:
+        print("No prefix found in environment file.", file=sys.stderr)
+        sys.exit(1)
+        
+    if token is None:
+        print("No discord bot token provided.", file=sys.stderr)
+        sys.exit(1)
+
+    logger = logging.getLogger("bot")
+
+    await run_bot(prefix, token, logger) 
     
 if __name__ == "__main__":
     asyncio.run(main())
