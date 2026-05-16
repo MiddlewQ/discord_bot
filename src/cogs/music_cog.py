@@ -12,11 +12,9 @@ from src.utils.partionation import PaginationView
 logger = logging.getLogger("music")
 
 class music_cog(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         
-        self.is_playing = False
-        self.is_paused = False
         self.current_song = None
         self.music_queue = []
         self.queue_duration = 0
@@ -29,9 +27,16 @@ class music_cog(commands.Cog):
 
         self.text_channel = None
         self.vc = None
-        self.ytdl = YoutubeDL(self.YDL_OPTIONS)
+        self.ytdl = YoutubeDL(self.YDL_OPTIONS) # type: ignore
         self.logger.info("Music cog initialized successfully.")
 
+    def get_vc(self) -> discord.VoiceClient | None:
+        if self.vc is not None and self.vc.is_connected():
+            return self.vc
+        return None
+
+    async def cog_check(self, ctx: commands.Context) -> bool:
+        return ctx.guild is not None
 
     def add_song_info(self, song, requester):
         embed = discord.Embed(
@@ -39,7 +44,9 @@ class music_cog(commands.Cog):
             color=discord.Color.blue(),
             type='rich'
         )
-        embed.set_author(icon_url=self.bot.user.avatar.url, name="Added track")
+        bot_user = self.bot.user
+        icon_url = bot_user.display_avatar.url if bot_user is not None else None
+        embed.set_author(icon_url=icon_url, name="Added track")
         fields = [
             # Name, value, inline
             ("Track", f"[{song['title']}]({song['source']})", False),
@@ -109,18 +116,14 @@ class music_cog(commands.Cog):
     async def play_next(self):
 
         if len(self.music_queue) == 0:
-            self.is_playing = False
-            self.is_paused = False
             self.queue_duration = 0
             self.current_song = None
             return
         
         if self.vc is None:
             logger.warning("Tried to play next song, but voice client is None")
-            self.is_playing = False
             return
         
-        self.is_playing = True
         
         next_item = self.music_queue.pop(0)
         next_song = next_item[0]
@@ -148,296 +151,426 @@ class music_cog(commands.Cog):
 
         self.vc.play(
             discord.FFmpegPCMAudio(
-                url, executable= "ffmpeg", **self.FFMPEG_OPTIONS), 
-                after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop)
+                url, 
+                executable= "ffmpeg", 
+                options=self.FFMPEG_OPTIONS["options"],
+                before_options=self.FFMPEG_OPTIONS["before_options"]
+            ), 
+            after=lambda e: asyncio.run_coroutine_threadsafe(
+                self.play_next(), 
+                self.bot.loop
+            )
         )
         logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=title))
     
     # infinite loop checking 
     async def play_music(self, ctx):
         
-        if len(self.music_queue) == 0:
-            self.is_playing = False   
+        if not self.music_queue:
+            self.current_song = None
             return
         
-        self.is_playing = True
-        self.is_paused = False
+        queue_item = self.music_queue[0]
+        song_info = queue_item[0]
+        channel = queue_item[1]
 
-        m_url = self.music_queue[0][0]['source']
-        
+        source = song_info.get("source")
+        if not isinstance(source, str) or not source:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SONG))
+
+        vc = self.get_vc()
         # Try to connect to voice channel if you are not already connected
-        if self.vc is None or not self.vc.is_connected():
-            self.vc = await self.music_queue[0][1].connect()
+        if vc is None:
+            vc = await channel.connect()
+            self.vc = vc
+        elif vc.channel != channel:
+            await vc.move_to(channel)
+        
 
-            #in case we fail to connect
-            if self.vc is None:
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_CONNECT_TO_VOICE_CHANNEL))
-                return
-        else:
-            await self.vc.move_to(self.music_queue[0][1])
 
-        #remove the first element as you are currently playing it
-        if self.current_song:
-            self.queue_duration -= self.current_song[0]['duration']
-        self.current_song = self.music_queue.pop(0)
-
-        # Sonic Logic Magic - cool n' stuff
         try:
             loop = asyncio.get_event_loop()
-            data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(m_url, download=False))
-            song = data['url']
-            self.vc.play(discord.FFmpegPCMAudio(song, executable= "ffmpeg", **self.FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop))
+
+            data = await loop.run_in_executor(
+                None, 
+                lambda: self.ytdl.extract_info(source, download=False)
+            )
+
+            if not isinstance(data, dict):
+                raise ValueError("yt-dlp returnd invalid data")
             
-            logger.info(msg.LOG_PLAY_MUSIC_EXECUTED.format(title=data['title']))
-        except Exception as e:
-            logger.error(e)
+            stream_url = data.get("url") 
+            title = data.get("title") or "Unknown title"
+
+            if not isinstance(stream_url, str) or not stream_url:
+                raise ValueError(f"No valid stream URL found for {title}")
+            
+            self.current_song = self.music_queue.pop(0)
+
+            vc.play(
+                discord.FFmpegPCMAudio(
+                    stream_url, 
+                    executable= "ffmpeg", 
+                    options=self.FFMPEG_OPTIONS["options"],
+                    before_options=self.FFMPEG_OPTIONS["before_options"]
+                ), 
+                after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(), self.bot.loop)
+            )
+            
+            logger.info(msg.LOG_PLAY_MUSIC_EXECUTED.format(title=title))
+
+        except Exception:
+            logger.exception("Failed to play music.")
             await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SONG))
 
 
-    @commands.command(name="join", aliases=['connect'], help=msg.HELP_MESSAGES['join'], extras=msg.HELP_USAGES['join'])
+    @commands.command(name="join", aliases=['connect'], help=msg.HELP_MESSAGES['join'], usage=msg.HELP_USAGES['join'])
     async def join(self, ctx, *args):
-        if not ctx.author.voice:    # Check if author is connected to a channel
+        user = ctx.author.name
+
+        voice = ctx.author.voice
+        if voice is None or voice.channel is None:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
             logger.warning(msg.LOG_SKIP_FAILED_USER_ABSENT)
             return
         
-        channel: discord.VoiceChannel = ctx.author.voice.channel      
+        channel = voice.channel
+        vc = self.get_vc()
 
-        # If the bot is already playing music 
-        if self.is_playing:
-            if self.vc and self.vc.channel == channel:
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SAME_CHANNEL))
-                logger.warning(msg.LOG_PLAY_FAILED_USER_CHANNEL_SAME.format(user=ctx.author.name))
-            else:
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_OTHER_CHANNEL))        
-                logger.warning(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name))
+        if vc is None:
+            self.vc = await channel.connect()
+            await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_CONNECTED.format(channel=channel.name)))
+            logger.info(msg.LOG_JOIN_CHANNEL_CONNECT)
+            return
+
+        if vc.channel == channel:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SAME_CHANNEL))
+            logger.warning(msg.LOG_PLAY_FAILED_USER_CHANNEL_SAME.format(user=ctx.author.name))
+            return  
+
+        if vc.is_playing() or vc.is_paused():
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_OTHER_CHANNEL))        
+            logger.warning(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name))
             return
         
-        if not self.vc or not self.vc.is_connected():
-            self.vc = await channel.connect()
-            logger.info(msg.LOG_JOIN_CHANNEL_CONNECT.format(channel=self.vc.channel.name))
-            await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_CONNECTED.format(channel=channel.name)))
-        elif self.vc.channel != channel:
-            old = self.vc.channel.name
-            await self.vc.move_to(channel)
-            logger.info(msg.LOG_JOIN_CHANNEL_MOVE.format(old=old, new=channel.name))
-            await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_MOVED.format(channel=channel.name)))
-        else:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_ALREADY_CONNECTED.format(channel=channel.name)))
-            logger.warning(msg.LOG_PLAY_FAILED_USER_CHANNEL_SAME.format(user=ctx.author.name))
-            
+        old_channel = vc.channel.name
+        await vc.move_to(channel)
+        
+        await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_MOVED.format(channel=channel.name)))
+        logger.info(msg.LOG_JOIN_CHANNEL_MOVE.format(old=old_channel, new=channel.name))
 
-    @commands.command(name="play", aliases=["p", "pl"], help=msg.HELP_MESSAGES['play'], extras=msg.HELP_USAGES['play'])
+
+
+    @commands.command(name="play", aliases=["p", "pl"], help=msg.HELP_MESSAGES['play'], usage=msg.HELP_USAGES['play'])
     async def play(self, ctx, *args):
-        if len(args) == 0:
+        user = ctx.author.name
+        
+        if not args:
             logger.warning(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
             return
-        if not ctx.author.voice or not ctx.author.voice.channel:
+        
+        voice = ctx.author.voice
+        if voice is None or voice.channel is None:
             logger.warning(msg.LOG_PLAY_FAILED_USER_ABSENT.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
         
+        channel = voice.channel
         query = " ".join(args)
+
         song = await self.search_yt(query)
 
         if song is None:
             logger.warning(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_NOT_FOUND))
             return
+        
+        title = song.get("title") or "Unknown title"
+        source = song.get("source")
+        duration = song.get("duration") or 0
 
-        if song['duration'] > 1200:
+        if not isinstance(source, str) or not source:
+            logger.warning(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=user))
+
+        if duration > 1200:
             logger.warning(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_TOO_LONG))
             return
 
-        if self.is_playing:
+        vc = self.get_vc()
+
+        already_active = vc is not None and (vc.is_playing() or vc.is_paused())
+
+        if already_active:
             await ctx.send(embed=self.add_song_info(song, ctx.author))
         else:
-            await ctx.send(embed=discord.Embed(description=msg.NOW_PLAYING.format(title=song['title'], source=song['source'])))  
+            await ctx.send(embed=discord.Embed(description=msg.NOW_PLAYING.format(title=title, source=source)))  
         
-        logger.info(msg.LOG_PLAY_ADD_TO_QUEUE_EXECUTED.format(title=song['title'], source=song['source']))
-        self.music_queue.append([song, ctx.author.voice.channel])
-        self.queue_duration += song['duration'] 
+        self.music_queue.append([song, channel])
+        self.queue_duration += duration
 
-        if self.is_playing == False:
+        logger.info(msg.LOG_PLAY_ADD_TO_QUEUE_EXECUTED.format(title=title, source=source))
+
+        if not already_active:
             await self.play_music(ctx)
 
 
-    @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], extras=msg.HELP_USAGES['multiplay'])
+    @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
     async def multiplay(self, ctx, *args):
-        query = " ".join(args)
-        if len(args) == 0:
+        if not args:
+            logger.warning
             logger.warning(msg.LOG_MULTIPLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
             return 
         
-        searches = [search.strip() for search in query.split('|')]
-        number_of_songs = min(20, len(searches))
-        for i in range(number_of_songs):
-            search = searches[i]
+        query = " ".join(args)
+        
+        searches = [
+            search.strip() 
+            for search in query.split('|')
+            if search.strip()
+        ]
+        
+        if not searches:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
+
+        if len(searches) > 20:
+            await ctx.send(embed=discord.Embed(description=":gear: Maximum 20 searches allowed for single message."))
+            searches = searches[:20]
+
+        for search in searches:
             await self.play(ctx, *search.split())
-        logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(number_of_songs=number_of_songs))
 
+        logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(number_of_songs=len(searches)))
 
-    @commands.command(name="pause", help="Pauses the current song being played.", extras="!pause")
+    @commands.command(name="pause", help="Pauses the current song being played.", usage="!pause")
     async def pause(self, ctx, *args):
-        if self.is_playing:
-            self.is_playing = False
-            self.is_paused = True
-            await ctx.send(embed=discord.Embed(description=":gear: Paused."))
-            self.vc.pause()
-        else:
+        vc = self.get_vc()
+
+        if vc is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+            return 
+
+        if vc.is_playing():
+            vc.pause()
+            await ctx.send(embed=discord.Embed(description=msg.PAUSED))
+            return
+        
+        if vc.is_paused():
             await self.resume(ctx, *args)
+            return 
 
+        await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
+        
 
-    @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], extras=msg.HELP_USAGES['resume'])
+    @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
     async def resume(self, ctx, *args):
         user = ctx.author.name 
-        if self.is_paused:
-            self.is_paused = False
-            self.is_playing = True
-            self.vc.resume()
+        vc = self.get_vc()
+
+        if vc is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+            return            
+
+        if vc.is_playing():
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_ALREADY_PLAYING))
+            return
+
+        if vc.is_paused():
+            vc.resume()
+            await ctx.send(embed=discord.Embed(description=msg.RESUME))
             logger.info(msg.LOG_RESUME_EXECUTED.format(user=user))
-        else:
-            logger.warning(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=user))
+            return
 
+        await ctx.send(embed=discord.Embed(description=msg.LOG_RESUME_FAILED_NOT_PAUSED))
+        logger.warning(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=user))
 
-    @commands.command(name="skip", aliases=["s"], help=msg.HELP_MESSAGES['skip'], extras=msg.HELP_USAGES['skip'])
+    @commands.command(name="skip", aliases=["s"], help=msg.HELP_MESSAGES['skip'], usage=msg.HELP_USAGES['skip'])
     async def skip(self, ctx):
         user = ctx.author.name
-        channel = ctx.author.voice.channel if ctx.author.voice and ctx.author.voice.channel else 'unknown'
 
-        if not ctx.author.voice or not ctx.author.voice.channel:
-            logger.warning(msg.LOG_JOIN_FAILED_USER_ABSENT.format(user=user, channel=channel))            
+
+        voice = ctx.author.voice
+        if not voice or not voice.channel:
+            logger.warning(msg.LOG_JOIN_FAILED_USER_ABSENT.format(user=user, channel="unknown"))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
         
-        if not self.vc or not self.vc.is_connected():
+        channel = voice.channel.name
+
+        vc = self.get_vc()
+        if vc is None:
             logger.warning(msg.LOG_SKIP_FAILED_BOT_ABSENT.format(user=user, channel=channel))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_IN_VOICE_CHANNEL))
             return
         
-        if not self.current_song and not self.music_queue:
+        if self.current_song is None:
             logger.warning(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=channel))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
             return
         
-        title = self.current_song[0]['title']
-        source = self.current_song[0]['source']
-        try:
-            self.vc.stop()
-            await ctx.send(embed=discord.Embed(description=msg.SKIP_SONG.format(title=title, source=source)))
-            logger.info(msg.LOG_SONG_SKIPPED.format(title=title, user=user, guild=ctx.guild.name))
-        except Exception as e:
-            logger.error(e)
+        if not vc.is_playing() and not vc.is_paused():
+            logger.warning(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=channel))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
+            return
 
-    @commands.command(name="queue", aliases=["q"], help=msg.HELP_MESSAGES['queue'], extras=msg.HELP_USAGES['queue'])
+        song = self.current_song[0]
+        title = song.get("title") or "Unknown title"
+        source = song.get("source") or ""
+        
+        vc.stop()
+        await ctx.send(embed=discord.Embed(description=msg.SKIP_SONG.format(title=title, source=source)))            
+
+        logger.info(
+            msg.LOG_SONG_SKIPPED.format(
+                title=title, 
+                user=user, 
+                guild=ctx.guild.name
+            )
+        )
+
+
+
+    @commands.command(name="queue", aliases=["q"], help=msg.HELP_MESSAGES['queue'], usage=msg.HELP_USAGES['queue'])
     async def queue(self, ctx):
-        user=ctx.author.name
+        
         # Handle case no music in queue:
         if not self.current_song and not self.music_queue:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
             logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
         
-        try:
-            # Less than 10 songs
+        vc = self.get_vc()
+        channel_name = vc.channel.name if vc is not None and vc.channel is not None else "Not connected"
+
+        data = {
+            "time_label": "Estimated Total Playtime",
+            "time": seconds_to_time_format(self.queue_duration),
+            "thumbnail": ctx.guild.icon.url if ctx.guild and ctx.guild.icon else None,
+            "fields": [],
+        }
+
+
+        if self.current_song is not None:
             song = self.current_song[0]
-                # For more than 10 songs, create a scrollable list view 5 items at a time
-            data = {
-                'time_label': "Estimated Total Playtime",
-                'time': f"{seconds_to_time_format(self.queue_duration)}",
-                'thumbnail': f"{ctx.guild.icon.url}",
-                'fields': [],
-            }
-            pagination_view = PaginationView()
-            pagination_view.title =  msg.QUEUE_STATUS.format(channel_name=ctx.guild.voice_client.channel.name) 
-            pagination_view.description = msg.NOW_PLAYING.format(title=song['title'], source=song['source'])
-            pagination_view.data = data
-
-            # pagination_view.set_thumbnail(url=self.bot.user.avatar.url)
-            for queue_nbr, song_info in enumerate(self.music_queue, start=1):
-                data['fields'].append({
-                    'label': "",
-                    'item': f"**{queue_nbr}.** {song_info[0]['title']}",
-                })
-            await pagination_view.send(ctx)
-            number_of_songs = len(self.music_queue) + 1 if self.current_song else len(self.music_queue)
-            logger.info(msg.LOG_QUEUE_DISPLAYED.format(channel=ctx.channel.name, number_of_songs=number_of_songs))
-        except Exception as e:
-            logger.error(e)
+            title = song.get("title") or "Unknown title"
+            source = song.get("source") or ""
+            description = (
+                f"**Now playing**\n"
+                f"[{title}]({source})" if source else f"**Now playing**\n{title}"
+            )
+            description = msg.NOW_PLAYING.format(
+                title=title,
+                source=source
+            )        
+        else:
+            description = "Nothing currently playing."
 
 
-    @commands.command(name="playing", aliases=["np"], help=msg.HELP_MESSAGES['playing'], extras=msg.HELP_USAGES['playing'])
+        for idx, song_info in enumerate(self.music_queue, start=1):
+            song = song_info[0]
+            title = song.get("title") or "Unknown title"
+
+            data['fields'].append({
+                'label': "",
+                'item': f"**{idx}.** {title}",
+            })
+
+        pagination_view = PaginationView(
+            data=data,
+            title=msg.QUEUE_STATUS.format(channel_name=channel_name),
+            description=description,
+            timeout=None
+        )
+
+        await pagination_view.send(ctx)
+        
+        number_of_songs = len(self.music_queue) + (1 if self.current_song else 0)
+
+        logger.info(
+            msg.LOG_QUEUE_DISPLAYED.format(
+                channel=ctx.channel.name, 
+                number_of_songs=number_of_songs
+            )
+        )
+
+
+    @commands.command(name="playing", aliases=["np"], help=msg.HELP_MESSAGES['playing'], usage=msg.HELP_USAGES['playing'])
     async def playing(self, ctx):
-        title = self.current_song[0]['title']
-        source = self.current_song[0]['source']
-        if self.is_playing:
-            playing_msg = msg.PLAYING.format(title=title, source=source)
-            await ctx.send(embed=discord.Embed(description=playing_msg))
-            return
+        if self.current_song is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PLAYING))
+            return 
+        
+        song = self.current_song[0]
+        
+        title = song.get("title") or "Unknown title"
+        source = song.get("source") or ""
         
         await ctx.send(embed=discord.Embed(description=msg.PLAYING.format(title=title, source=source)))
+        return
+        
 
 
-    @commands.command(name="remove", aliases=["rm"], help=msg.HELP_MESSAGES['remove'], extras=msg.HELP_USAGES['remove'])
+    @commands.command(name="remove", aliases=["rm"], help=msg.HELP_MESSAGES['remove'], usage=msg.HELP_USAGES['remove'])
     async def remove(self, ctx, *args):
+        user = ctx.author.name
+
         if not self.music_queue:
             logger.warning(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_QUEUE_EMPTY))
             return
         
-        # Removes last if no arg given
-        if len(args) == 0:
-            song = self.music_queue.pop()[0]
-            self.queue_duration -= song['duration']
+        if not args:
+            index = len(self.music_queue) - 1
+        else:
+            try:
+                position = int(args[0])
+            except ValueError:
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
+                return 
             
-            logger.info(msg.LOG_REMOVE_LAST_EXECUTED.format(index=len(self.music_queue), user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.REMOVED_QUEUE_LAST))
-            return
+            if position < 1 or position > len(self.music_queue):
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
+
+            index = position - 1
+
+        song = self.music_queue.pop(index)[0]
+        duration = song.get("duration") or 0
+        title = song.get("title") or "Unknown title"
+
+        self.queue_duration = max(0, self.queue_duration - duration)
+
+        await ctx.send(embed=discord.Embed(description=msg.SONG_REMOVED.format(title=title)))
         
-        # Try to remove at the input index (queue starts at 1 for user)
-        try:
-            index = int(args[0]) - 1
-            song = self.music_queue[index][0]
-
-            duration = song.get("duration") or 0
-            title = song.get("title") or "Unknown title"
-            
-            self.queue_duration = max(0, self.queue_duration - duration)
-            self.music_queue.pop(index)
-
-            logger.info(msg.REMOVED_QUEUE_INDEX.format(index=index + 1))
-
-            await ctx.send(
-                embed=discord.Embed(
-                    description=msg.SONG_REMOVED.format(title=title)
-                )
-            )
-        except (ValueError, IndexError):
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
-        except Exception:
-            logger.error("Failed to remove song from queue")
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
+        logger.info(
+            msg.LOG_REMOVE_LAST_EXECUTED.format(index=index + 1, user=user)
+            if not args
+            else msg.REMOVED_QUEUE_INDEX.format(index = index + 1))
         
-
-    @commands.command(name="clear", aliases=["c", "bin"], help=msg.HELP_MESSAGES['clear'], extras=msg.HELP_USAGES['clear'])
+    @commands.command(name="clear", aliases=["c", "bin"], help=msg.HELP_MESSAGES['clear'], usage=msg.HELP_USAGES['clear'])
     async def clear(self, ctx):
-        if self.vc != None and self.is_playing:
-            self.vc.stop()
+        vc = self.get_vc()
+        user = ctx.author.name
 
-        self.is_playing = False
-        self.music_queue = []
+        had_music = self.current_song is not None or bool(self.music_queue)
+
+        self.music_queue.clear()
         self.current_song = None
         self.queue_duration = 0
-        user = ctx.author.name
-        if user is None:
-            user = "<Unknown>"
+
+        if vc is not None and (vc.is_playing() or vc.is_paused()):
+            vc.stop()
+
+        if not had_music:
+            logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
+            await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
+            return
+
         logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
         await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
 
-    @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], extras=msg.HELP_USAGES['stop'])
+    @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], usage=msg.HELP_USAGES['stop'])
     async def stop(self, ctx):
         self.is_playing = False
         self.is_paused = False
@@ -456,7 +589,7 @@ class music_cog(commands.Cog):
         logger.info(msg.LOG_STOP_EXECUTED.format(channel=ctx.author.voice.channel.name, user=ctx.author.name))
 
 
-    @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], extras=msg.HELP_USAGES['status'])
+    @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], usage=msg.HELP_USAGES['status'])
     async def status(self, ctx):
         songs = []
         for i in range(len(self.music_queue)):
