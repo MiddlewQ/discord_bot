@@ -56,9 +56,11 @@ class MessageStore:
     # Search Youtube & FFMPEG
     FAIL_INCORRECT_FORMAT = ":gear: Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format."
 
-    # Pause / Resume
+    # Pause / Resume / Playing
     PAUSED = ":gear: Paused."
-
+    RESUME = ":gear: Resuemed."
+    FAIL_BOT_ALREADY_PLAYING = ":gear: I am already playing."
+    FAIL_BOT_NOT_PLAYING = ":gear: Nothing is playing."
     # Skip
     SKIP_SONG = ":gear: [{title}]({source}) was skipped."
     FAIL_SKIP_SONG = ":gear: There's no song playing to skip."
@@ -70,10 +72,10 @@ class MessageStore:
     FAIL_QUEUE_EMPTY = ":gear: No music in queue."
 
     # Remove
-    REMOVED_QUEUE_LAST = ":gear: Removed last song of list"
-    REMOVED_QUEUE_INDEX = ":gear: Removed {title} from queue"
+    REMOVED_QUEUE_LAST = ":gear: Removed last song of list."
+    REMOVED_QUEUE_INDEX = ":gear: Removed {title} from queue."
     SONG_REMOVED = ":gear: Song: {title} removed."
-    FAIL_INVALID_INDEX = ":gear: Invalid position in queue"
+    FAIL_INVALID_INDEX = ":gear: Invalid position in queue."
 
     # Logger
     # -----------------------------------------------------------------------------------------------------------------
