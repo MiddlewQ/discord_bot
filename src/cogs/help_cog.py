@@ -40,48 +40,51 @@ class help_cog(commands.Cog):
 
     @commands.command(name="paginate")
     async def paginate(self, ctx):
-        data = [
+        data = {"fields": []}
 
-        ]
-
-        for i in range(1,33):
-            data.append({
+        for i in range(1, 33):
+            data["fields"].append({
                 "label": "User Event",
-                "item": f"User {i} has been added"
+                "item": f"User {i} has been added",
             })
-        print(data)
-        pagination_view = PaginationView(timeout=None)
-        pagination_view.data = data
-        await pagination_view.send(ctx, )
+
+        pagination_view = PaginationView(
+            data=data,
+            timeout=None,
+            title="Test pagination",
+            description="Testing paginated embed output",
+        )
+
+        await pagination_view.send(ctx)
 
     @commands.command(name="ping")
     async def test_response_to_bot(self, ctx):
         await ctx.send("pong")
 
     
-    @commands.command(name="help", aliases=["h"], help="Displays help message for all commands or a specific command.", extras="!help, !help <command>")
-    async def help(self, ctx, *, command:str = None):
-        if command:
-            # Detailed help for single command
-            await self.show_command_help(ctx, command)
-            return
-        
-        # General Help Header
-        # embed = discord.Embed(
-        title="📠 General Commands"
-        description="Type `!<command>` to run any of the following commands.\nMore detailed help can be found by typing `!<command> help`."
-        # Print all commands
-        data = {'fields': []}
-        pagination_view = PaginationView()
-        pagination_view.data = data
-        pagination_view.title = title
-        pagination_view.description = description
-        for command in self.command_order:
-            cmd = self.bot.get_command(command)
-            data['fields'].append({
-                'label': cmd.name,
-                'item': cmd.help,
+    @commands.command(name="help", aliases=["h"], help="Displays help message for all commands or a specific command.", usage="!help, !help <command>")
+    async def help(self, ctx, *, command:str | None = None):
+        data = {"fields": []}
+
+        for command_name in self.command_order:
+            cmd = self.bot.get_command(command_name)
+
+            if cmd is None:
+                continue
+
+            data["fields"].append({
+            "label": cmd.name,
+            "item": cmd.help or "No help text available.",
             })
-        logger.debug("Fields: ", data['fields'])
-        await pagination_view.send(ctx, )
-    
+
+        pagination_view = PaginationView(
+            data=data,
+            title="📠 General Commands",
+            description=(
+                "Type `!<command>` to run any of the following commands.\n"
+                "More detailed help can be found by typing `!help <command>`."
+            ),
+            timeout=None,
+        )
+
+        await pagination_view.send(ctx)
