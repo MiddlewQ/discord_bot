@@ -79,7 +79,7 @@ FAIL_INVALID_INDEX          = ":gear: Invalid position in queue."
 # Timeout
 INACTIVITY_NO_HUMANS        = ":gear: Leaving voice because there are no humans left in the channel."
 INACTIVITY_PAUSED           = ":gear: Leaving voice because playback has been paused for too long."
-INACTIVITY_IDLE             = ":gear: Leaving voice because nothing has been palying for a while."
+INACTIVITY_IDLE             = ":gear: Leaving voice because nothing has been playing for a while."
 
 
 # Logger
