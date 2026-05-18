@@ -154,6 +154,7 @@ LOG_PAGINATOR_EXECUTED = "Pagination view executed: page {page}."
 
 
 # TIMEOUT
+LOG_INACTIVITY_START        = "Inactivity timer start: {reason}"
 LOG_INACTIVITY_NO_HUMANS    = "Inactivity timeout: Leaving voice channel '{channel}' because no users remain."
 LOG_INACTIVITY_PAUSED       = "Inactivity timeout: Leaving voice channel '{channel}' because because playback was paused too long."
 LOG_INACTIVITY_IDLE         = "Inactivity timeout: Leaving voice channel '{channel}' because because nothing has been playing for a while."

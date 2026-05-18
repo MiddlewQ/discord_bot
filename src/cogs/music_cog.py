@@ -3,7 +3,6 @@ import asyncio
 from discord.ext import commands
 from yt_dlp import YoutubeDL
 
-# from src.utils import *
 from src.utils.logging_config import *
 import src.utils.message as msg
 from src.utils.time_convertion import *
@@ -11,8 +10,8 @@ from src.utils.partionation import PaginationView
 
 logger = logging.getLogger("music")
 
-INACTIVITY_SECONDS_NO_HUMANS = 2 * 60
-INACTIVITY_SECONDS_IDLE      = 5 * 60
+INACTIVITY_SECONDS_NO_HUMANS =  2 * 60
+INACTIVITY_SECONDS_IDLE      =  5 * 60
 INACTIVITY_SECONDS_PAUSED    = 30 * 60
 
 class music_cog(commands.Cog):
@@ -263,7 +262,9 @@ class music_cog(commands.Cog):
 
     async def idle_disconnect_after(self, seconds: int, reason: str):
         try:
+            logger.info(msg.LOG_INACTIVITY_IDLE.format(reason=reason))
             await asyncio.sleep(seconds)
+                
             await self.cleanup_voice(reason)
         except asyncio.CancelledError:
             pass
@@ -293,7 +294,6 @@ class music_cog(commands.Cog):
     @commands.Cog.listener()
     async def on_command(self, ctx):
         logger.info(f"{ctx.command.name.capitalize()} command requested: User {ctx.author.name} in {ctx.channel.name}")
-
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
@@ -382,7 +382,6 @@ class music_cog(commands.Cog):
         
         channel = voice.channel
         query = " ".join(args)
-
         song = await self.search_yt(query)
 
         if song is None:
@@ -395,13 +394,13 @@ class music_cog(commands.Cog):
         duration = song.get("duration") or 0
 
         if not isinstance(source, str) or not source:
-            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=user))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_NOT_FOUND))
+            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=user))
             return 
 
         if duration > 1200:
-            logger.warning(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_TOO_LONG))
+            logger.warning(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             return
 
         vc = self.get_vc()
@@ -473,7 +472,7 @@ class music_cog(commands.Cog):
         
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
-    async def resume(self, ctx, *args):
+    async def resume(self, ctx):
         user = ctx.author.name 
         vc = self.get_vc()
 
@@ -661,24 +660,29 @@ class music_cog(commands.Cog):
     @commands.command(name="clear", aliases=["c", "bin"], help=msg.HELP_MESSAGES['clear'], usage=msg.HELP_USAGES['clear'])
     async def clear(self, ctx):
         vc = self.get_vc()
+        
         user = ctx.author.name
 
-        had_music = self.current_song is not None or bool(self.music_queue)
-
-        if not had_music:
-            logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
+        if self.current_song is None and not self.music_queue:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
+            logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
         
         self.music_queue.clear()
         self.current_song = None
         self.queue_duration = 0
 
-        if vc is not None and (vc.is_playing() or vc.is_paused()):
+        if vc is None:
+            await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
+            logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
+            return
+        
+        if vc.is_playing() or vc.is_paused():
             vc.stop()
+        self.start_idle_timer(INACTIVITY_SECONDS_IDLE, msg.INACTIVITY_IDLE.format(channel=vc.channel.name))
 
-        logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
         await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
+        logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
 
 
     @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], usage=msg.HELP_USAGES['stop'])
