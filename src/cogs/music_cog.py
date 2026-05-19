@@ -511,25 +511,30 @@ class music_cog(commands.Cog):
     @commands.command(name="pause", help="Pauses the current song being played.", usage="!pause")
     async def pause(self, ctx, *args):
         state = self.playback_state()
+        user = ctx.author.name
 
         if state == PlaybackState.DISCONNECTED:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+            logger.info(msg.LOG_PAUSE_FAILED_NOT_CONNECTED.format(user=user))
             return 
+        
+        if state == PlaybackState.IDLE:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_PAUSE_NOT_PLAYING))
+            logger.info(msg.LOG_PAUSE_FAILED_NOT_PLAYING.format(user=user))
+            return 
+
+        if state == PlaybackState.PAUSED:
+            await self.resume(ctx)
+            return
         
         vc = self.get_vc()
         assert vc is not None
 
-        if state == PlaybackState.IDLE:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
-            return 
-
-        if state == PlaybackState.PLAYING:
-            vc.pause()
-            self.start_timeout(TimeoutReason.PAUSED)
-            await ctx.send(embed=discord.Embed(description=msg.PAUSED))
-            return
+        vc.pause()
+        self.start_timeout(TimeoutReason.PAUSED)
+        await ctx.send(embed=discord.Embed(description=msg.PAUSED))
+        logger.info(msg.LOG_PAUSE_EXECUTED.format(user=user))
         
-        await self.resume(ctx, *args)
         
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
