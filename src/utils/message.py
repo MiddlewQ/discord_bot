@@ -30,61 +30,61 @@ HELP_USAGES = {
 }
     
     # Discord messages
-BOT_CHANNEL_CONNECTED = ":gear: Connected to {channel}."
-BOT_CHANNEL_MOVED = ":gear: Moved to {channel}."
-FAIL_USER_NOT_IN_VOICE_CHANNEL = ":gear: You need to be connected to a voice channel."
-FAIL_BOT_NOT_IN_VOICE_CHANNEL = ":gear: Not in a voice channel"
-FAIL_BOT_NOT_CONNECTED = ":gear: I am not connected to a voice channel."
-FAIL_BOT_ALREADY_CONNECTED = ":gear: Already connected to {channel}."
+BOT_CHANNEL_CONNECTED           = ":gear: Connected to {channel}."
+BOT_CHANNEL_MOVED               = ":gear: Moved to {channel}."
+FAIL_USER_NOT_IN_VOICE_CHANNEL  = ":gear: You need to be connected to a voice channel."
+FAIL_BOT_NOT_IN_VOICE_CHANNEL   = ":gear: Not in a voice channel"
+FAIL_BOT_NOT_CONNECTED          = ":gear: I am not connected to a voice channel."
+FAIL_BOT_ALREADY_CONNECTED      = ":gear: Already connected to {channel}."
 
 # Join - Empty so far
-FAIL_PLAYING_SAME_CHANNEL = ":gear: I am already playing music in this voice channel."
-FAIL_PLAYING_OTHER_CHANNEL = ":gear: I am playing music in another voice channel."
-FAIL_CONNECT_TO_VOICE_CHANNEL = ":gear: Could not connect to a voice channel."
+FAIL_PLAYING_SAME_CHANNEL       = ":gear: I am already playing music in this voice channel."
+FAIL_PLAYING_OTHER_CHANNEL      = ":gear: I am playing music in another voice channel."
+FAIL_CONNECT_TO_VOICE_CHANNEL   = ":gear: Could not connect to a voice channel."
 
 # Play / Playing / Multiplay
-START_PLAYBACK = ":gear: **Starting** [{title}]({source})..."
-PLAY_NEXT = ":gear: Started Playing[{title}]({source})"
-PLAYING = ":gear: Currently playing: [{title}]({source})"
-FAIL_PLAYING_SONG = ":gear: Error playing song."
-FAIL_VIDEO_NOT_FOUND = ":gear: Could not find any video."
-FAIL_VIDEO_TOO_LONG = ":gear: Max video length: 20 minutes."
-FAIL_NO_ARGS = ":gear: No arguments were provided. Please specify a song or URL to play."
+START_PLAYBACK                  = ":gear: **Starting** [{title}]({source})..."
+PLAY_NEXT                       = ":gear: Started Playing[{title}]({source})"
+PLAYING                         = ":gear: Currently playing: [{title}]({source})"
+FAIL_PLAYING_SONG               = ":gear: Error playing song."
+FAIL_VIDEO_NOT_FOUND            = ":gear: Could not find any video."
+FAIL_VIDEO_TOO_LONG             = ":gear: Max video length: 20 minutes."
+FAIL_NO_ARGS                    = ":gear: No arguments were provided. Please specify a song or URL to play."
 
 # Search Youtube & FFMPEG
-FAIL_INCORRECT_FORMAT = ":gear: Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format."
+FAIL_INCORRECT_FORMAT           = ":gear: Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format."
 
 # Pause / Resume / Playing
-PAUSED = ":gear: Paused."
-RESUME = ":gear: Resuemed."
-FAIL_BOT_ALREADY_PLAYING    = ":gear: I am already playing."
-FAIL_BOT_NOT_PAUSED         = ":gear: Nothing is paused."
-FAIL_BOT_NOT_PLAYING        = ":gear: Nothing is playing."
+PAUSED                          = ":gear: Paused."
+RESUME                          = ":gear: Resuemed."
+FAIL_BOT_ALREADY_PLAYING        = ":gear: I am already playing."
+FAIL_BOT_NOT_PAUSED             = ":gear: Nothing is paused."
+FAIL_BOT_NOT_PLAYING            = ":gear: Nothing is playing."
 
 # Skip
-SKIP                        = ":gear: [{title}]({source}) was skipped."
-FAIL_SKIP                   = ":gear: There's no song playing to skip."
-FAIL_PAUSE_NOT_PLAYING      = ":gear: Nothing is playing to pause."
+SKIP                            = ":gear: [{title}]({source}) was skipped."
+FAIL_SKIP                       = ":gear: There's no song playing to skip."
+FAIL_PAUSE_NOT_PLAYING          = ":gear: Nothing is playing to pause."
 
 # Queue / Clear
-QUEUE_STATUS                = 'Music Queue | {channel_name}'
-QUEUE_EMPTY                 = ":gear: Queue is empty."
-QUEUE_CLEARED               = ":gear: Queue cleared."
-FAIL_QUEUE_EMPTY            = ":gear: No music in queue."
+QUEUE_STATUS                    = 'Music Queue | {channel_name}'
+QUEUE_EMPTY                     = ":gear: Queue is empty."
+QUEUE_CLEARED                   = ":gear: Queue cleared."
+FAIL_QUEUE_EMPTY                = ":gear: No music in queue."
 
 # Remove
-REMOVED_QUEUE_LAST          = ":gear: Removed last song of list."
-REMOVED_QUEUE_INDEX         = ":gear: Removed {title} from queue."
-SONG_REMOVED                = ":gear: Song: {title} removed."
-FAIL_INVALID_INDEX          = ":gear: Invalid position in queue."
+REMOVED_QUEUE_LAST              = ":gear: Removed last song of list."
+REMOVED_QUEUE_INDEX             = ":gear: Removed {title} from queue."
+SONG_REMOVED                    = ":gear: Song: {title} removed."
+FAIL_INVALID_INDEX              = ":gear: Invalid position in queue."
 
 # Stop
-STOPPED_BY_USER             = ":gear: Stopped by user."
+STOPPED_BY_USER                 = ":gear: Stopped by user."
 
 # Timeout
-TIMEOUT_NO_HUMANS        = ":gear: Leaving voice because there are no humans left in the channel."
-TIMEOUT_PAUSED           = ":gear: Leaving voice because playback has been paused for too long."
-TIMEOUT_IDLE             = ":gear: Leaving voice because nothing has been playing for a while."
+TIMEOUT_NO_HUMANS               = ":gear: Leaving voice because there are no humans left in the channel."
+TIMEOUT_PAUSED                  = ":gear: Leaving voice because playback has been paused for too long."
+TIMEOUT_IDLE                    = ":gear: Leaving voice because nothing has been playing for a while."
 
 
 # Logger
