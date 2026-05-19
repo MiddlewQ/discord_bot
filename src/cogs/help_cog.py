@@ -10,10 +10,6 @@ class help_cog(commands.Cog):
         self.text_channel_list = []
         self.command_order = ['join', 'play', 'playing', 'multiplay', 'queue', 'pause', 'resume', 'skip', 'help', 'remove', 'clear', 'stop'] # used for ordering the help command
 
-
-    def set_message(self):
-        help_message = """
-"""
     @commands.Cog.listener()
     async def on_ready(self):
         logger.info(f'User {self.bot.user} (ID: {self.bot.user.id})')
