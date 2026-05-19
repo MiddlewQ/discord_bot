@@ -2,6 +2,9 @@ import discord
 import asyncio
 from discord.ext import commands
 from yt_dlp import YoutubeDL
+# from bot_state import PlaybackState
+from enum import StrEnum, auto
+from dataclasses import dataclass
 
 from src.utils.logging_config import *
 import src.utils.message as msg
@@ -10,9 +13,35 @@ from src.utils.partionation import PaginationView
 
 logger = logging.getLogger("music")
 
-INACTIVITY_SECONDS_NO_HUMANS =  2 * 60
-INACTIVITY_SECONDS_IDLE      =  5 * 60
-INACTIVITY_SECONDS_PAUSED    = 30 * 60
+class TimeoutReason(StrEnum):
+    NO_HUMANS = auto()
+    IDLE = auto()
+    PAUSED = auto()
+    USER_STOPPED = auto()
+
+@dataclass(frozen=True)
+class TimeoutPolicy:
+    seconds: int
+    discord_message: str
+    log_message: str
+
+TIMEOUT_POLICIES = {
+    TimeoutReason.NO_HUMANS: TimeoutPolicy(
+        seconds = 120,
+        discord_message=msg.TIMEOUT_NO_HUMANS,
+        log_message=msg.LOG_TIMEOUT_NO_HUMANS,
+    ),
+    TimeoutReason.IDLE: TimeoutPolicy(
+        seconds=600,
+        discord_message=msg.TIMEOUT_IDLE,
+        log_message=msg.LOG_TIMEOUT_IDLE,
+    ),
+    TimeoutReason.PAUSED: TimeoutPolicy(
+        seconds=1800,
+        discord_message=msg.TIMEOUT_PAUSED,
+        log_message=msg.LOG_TIMEOUT_PAUSED
+    ),
+}
 
 class music_cog(commands.Cog):
 
@@ -25,7 +54,7 @@ class music_cog(commands.Cog):
         self.queue_duration = 0
         self.logger = logger
 
-        self.idle_task = None
+        self.timeout_task = None
         
         self.YDL_OPTIONS = {'format': 'bestaudio[ext=m4a]/bestaudio/best', 
                             'noplaylist': True}
@@ -41,6 +70,7 @@ class music_cog(commands.Cog):
         return ctx.guild is not None
 
     # 2. State helpers
+
     def get_vc(self) -> discord.VoiceClient | None:
         if self.vc is not None and self.vc.is_connected():
             return self.vc
@@ -198,7 +228,7 @@ class music_cog(commands.Cog):
                 self.current_song = queue_item
                 self.queue_duration = max(0, self.queue_duration - duration)
 
-                self.cancel_idle_timer()
+                self.cancel_timeout()
 
                 vc.play(
                     discord.FFmpegPCMAudio(
@@ -227,7 +257,7 @@ class music_cog(commands.Cog):
 
         vc = self.get_vc()
         if vc is not None:
-            self.start_idle_timer(INACTIVITY_SECONDS_IDLE, msg.INACTIVITY_IDLE.format(channel=vc.channel.name))
+            self.start_timeout(reason=TimeoutReason.IDLE)
 
     async def extract_audio_info(self, source: str):
         loop = asyncio.get_running_loop()
@@ -244,33 +274,41 @@ class music_cog(commands.Cog):
 
 
     # 5. Idle / cleanup internals
-    def start_idle_timer(self, seconds: int, reason: str):
-        self.cancel_idle_timer()
-        self.idle_task = self.bot.loop.create_task(
-            self.idle_disconnect_after(seconds, reason)
+    def start_timeout(self, reason: TimeoutReason):
+        policy = TIMEOUT_POLICIES[reason]
+        self.cancel_timeout()
+    
+        logger.info(f"Starting timeout: reason={reason}, seconds={policy.seconds}")
+
+        
+        self.timeout_task = asyncio.create_task(
+            self.disconnect_after_timeout(policy)
         )
 
-    def cancel_idle_timer(self):
-        if self.idle_task is None:
+    def cancel_timeout(self):
+        if self.timeout_task is None:
             return 
 
-        task = self.idle_task
-        self.idle_task = None
+        task = self.timeout_task
+        self.timeout_task = None
 
         if task is not asyncio.current_task():
             task.cancel()
 
-    async def idle_disconnect_after(self, seconds: int, reason: str):
+    async def disconnect_after_timeout(self, policy: TimeoutPolicy):
         try:
-            logger.info(msg.LOG_INACTIVITY_IDLE.format(reason=reason))
-            await asyncio.sleep(seconds)
-                
-            await self.cleanup_voice(reason)
+            logger.info(msg.LOG_TIMEOUT_IDLE.format(channel="unknown"))
+            seconds = policy.seconds
+            while seconds > 0:
+                await asyncio.sleep(1)
+                logger.info(f"Seconds left: {seconds}")
+                seconds -= 1
+            await self.cleanup_voice(policy.discord_message)
         except asyncio.CancelledError:
             pass
 
     async def cleanup_voice(self, reason):
-        self.cancel_idle_timer()
+        self.cancel_timeout()
 
         vc = self.get_vc()
         if vc is not None:
@@ -310,11 +348,11 @@ class music_cog(commands.Cog):
         humans = [m for m in vc.channel.members if not m.bot]
 
         if len(humans) == 0:
-            logger.info(msg.LOG_INACTIVITY_NO_HUMANS.format(channel=vc.channel.name))
-            self.start_idle_timer(INACTIVITY_SECONDS_NO_HUMANS, reason=msg.INACTIVITY_NO_HUMANS) # Leave voice call after 2 min alone
+            logger.info(msg.LOG_TIMEOUT_NO_HUMANS.format(channel=vc.channel.name))
+            self.start_timeout(TimeoutReason.NO_HUMANS)
         else:
             if vc.is_playing():
-                self.cancel_idle_timer()
+                self.cancel_timeout()
 
     
     # 7. Commands
@@ -335,7 +373,8 @@ class music_cog(commands.Cog):
         # Join voice channel without previous connection
         if vc is None:
             self.vc = await channel.connect()
-            self.start_idle_timer(INACTIVITY_SECONDS_IDLE, msg.INACTIVITY_IDLE.format(channel=channel.name))
+            logger.info("test")
+            self.start_timeout(TimeoutReason.IDLE)
             await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_CONNECTED.format(channel=channel.name)))
             logger.info(msg.LOG_JOIN_CHANNEL_CONNECT.format(channel=channel.name))
             return
@@ -343,7 +382,7 @@ class music_cog(commands.Cog):
         # Join current voice channel
         if vc.channel == channel:
             if not vc.is_playing() and not vc.is_paused():
-                self.start_idle_timer(INACTIVITY_SECONDS_IDLE, msg.INACTIVITY_IDLE.format(channel=channel.name))
+                self.start_timeout(TimeoutReason.IDLE)
 
             await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SAME_CHANNEL))
             logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_SAME.format(user=ctx.author.name))
@@ -358,7 +397,7 @@ class music_cog(commands.Cog):
         # Move voice channel to new one
         old_channel = vc.channel.name
         await vc.move_to(channel)
-        self.start_idle_timer(INACTIVITY_SECONDS_IDLE, msg.INACTIVITY_IDLE.format(channel=channel.name))
+        self.start_timeout(TimeoutReason.IDLE)
 
         await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_MOVED.format(channel=channel.name)))
         logger.info(msg.LOG_JOIN_CHANNEL_MOVE.format(old=old_channel, new=channel.name))
@@ -460,7 +499,7 @@ class music_cog(commands.Cog):
 
         if vc.is_playing():
             vc.pause()
-            self.start_idle_timer(INACTIVITY_SECONDS_PAUSED, reason=msg.INACTIVITY_PAUSED)
+            self.start_timeout(TimeoutReason.PAUSED)
             await ctx.send(embed=discord.Embed(description=msg.PAUSED))
             return
         
@@ -486,7 +525,7 @@ class music_cog(commands.Cog):
 
         if vc.is_paused():
             vc.resume()
-            self.cancel_idle_timer()
+            self.cancel_timeout()
             await ctx.send(embed=discord.Embed(description=msg.RESUME))
             logger.info(msg.LOG_RESUME_EXECUTED.format(user=user))
             return
@@ -679,7 +718,7 @@ class music_cog(commands.Cog):
         
         if vc.is_playing() or vc.is_paused():
             vc.stop()
-        self.start_idle_timer(INACTIVITY_SECONDS_IDLE, msg.INACTIVITY_IDLE.format(channel=vc.channel.name))
+        self.start_timeout(TimeoutReason.IDLE)
 
         await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
         logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
@@ -729,4 +768,4 @@ class music_cog(commands.Cog):
         await ctx.send(embed=embed)
 
 
-            
+

@@ -77,9 +77,9 @@ SONG_REMOVED                = ":gear: Song: {title} removed."
 FAIL_INVALID_INDEX          = ":gear: Invalid position in queue."
 
 # Timeout
-INACTIVITY_NO_HUMANS        = ":gear: Leaving voice because there are no humans left in the channel."
-INACTIVITY_PAUSED           = ":gear: Leaving voice because playback has been paused for too long."
-INACTIVITY_IDLE             = ":gear: Leaving voice because nothing has been playing for a while."
+TIMEOUT_NO_HUMANS        = ":gear: Leaving voice because there are no humans left in the channel."
+TIMEOUT_PAUSED           = ":gear: Leaving voice because playback has been paused for too long."
+TIMEOUT_IDLE             = ":gear: Leaving voice because nothing has been playing for a while."
 
 
 # Logger
@@ -154,7 +154,7 @@ LOG_PAGINATOR_EXECUTED = "Pagination view executed: page {page}."
 
 
 # TIMEOUT
-LOG_INACTIVITY_START        = "Inactivity timer start: {reason}"
-LOG_INACTIVITY_NO_HUMANS    = "Inactivity timeout: Leaving voice channel '{channel}' because no users remain."
-LOG_INACTIVITY_PAUSED       = "Inactivity timeout: Leaving voice channel '{channel}' because because playback was paused too long."
-LOG_INACTIVITY_IDLE         = "Inactivity timeout: Leaving voice channel '{channel}' because because nothing has been playing for a while."
+LOG_TIMEOUT_START        = "Starting timeout: reason{reason}"
+LOG_TIMEOUT_NO_HUMANS    = "Inactivity timeout: Leaving voice channel '{channel}' because no users remain."
+LOG_TIMEOUT_PAUSED       = "Inactivity timeout: Leaving voice channel '{channel}' because because playback was paused too long."
+LOG_TIMEOUT_IDLE         = "Inactivity timeout: Leaving voice channel '{channel}' because because nothing has been playing for a while."
