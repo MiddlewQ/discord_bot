@@ -56,8 +56,8 @@ FAIL_INCORRECT_FORMAT = ":gear: Could not download the song. Incorrect format tr
 
 # Pause / Resume / Playing
 PAUSED = ":gear: Paused."
-FAIL_BOT_ALREADY_PLAYING    = ":gear: I am already playing."
 RESUME = ":gear: Resuemed."
+FAIL_BOT_ALREADY_PLAYING    = ":gear: I am already playing."
 FAIL_BOT_NOT_PLAYING        = ":gear: Nothing is playing."
 
 # Skip
@@ -118,8 +118,11 @@ LOG_PAUSE_EXECUTED = "Pause command executed: Paused by '{user}'."
 LOG_PAUSE_FAILED_NOT_PLAYING = "Pause command failed: No music is playing when attempted by '{user}'."
 
 # Resume command logs
-LOG_RESUME_EXECUTED = "Resume command executed: Resumed by '{user}'."
-LOG_RESUME_FAILED_NOT_PAUSED = "Resume command failed: No music is paused when attempted by '{user}'."
+LOG_RESUME_EXECUTED                 = "Resume command executed: Resumed by '{user}'."
+LOG_RESUME_FAILED_NOT_CONNECTED     = "Resume command failed: Not connected to a server when attempted by '{user}'"
+LOG_RESUME_FAILED_ALREADY_PLAYING   = "Resume command failed: Audio is already playing when attempted by '{user}'."
+LOG_RESUME_FAILED_NOT_PAUSED        = "Resume command failed: No music is paused when attempted by '{user}'."
+
 
 # Queue commands logs
 LOG_QUEUE_EMPTY = "Queue command response empty in {channel}."
@@ -143,9 +146,9 @@ LOG_STOP_FAILED = ""
 
 # Skip Log
 LOG_SONG_SKIPPED = "Song '{title}' was skipped by user '{user}' in guild '{guild}'."
-LOG_SKIP_FAILED_USER_ABSENT = "Skip command failed: User '{user}' attempted to skip song but the user is not in a voice channel (Channel: {channel})."
-LOG_SKIP_FAILED_BOT_ABSENT = "Skip command failed: User '{user}' attempted to skip song in channel '{channel}' but the voice connection is not active."
-LOG_SKIP_FAILED_NO_MUSIC = "Skip command failed: User '{user}' attempted to skip song in channel '{channel}' but no song is currently playing and the queue is empty."
+LOG_SKIP_FAILED_BOT_ABSENT = "Skip command failed: User '{user}' attempted to skip song but the bot is not connected to a channel."
+LOG_SKIP_FAILED_USER_ABSENT = "Skip command failed: User '{user}' attempted to skip song but the user is connected to the voice channel '{channel}'."
+LOG_SKIP_FAILED_NO_MUSIC = "Skip command failed: User '{user}' attempted to skip song in channel '{channel}' but no song is currently playing."
 
 LOG_CONNECTED_TO_CHANNEL = "Bot connected to voice channel '{channel}'."
 LOG_MOVED_TO_CHANNEL = "Bot moved to another channel '{channel}'."

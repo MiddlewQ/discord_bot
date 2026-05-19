@@ -12,6 +12,12 @@ from src.utils.partionation import PaginationView
 
 logger = logging.getLogger("music")
 
+class PlaybackState(StrEnum):
+    DISCONNECTED = auto()
+    IDLE = auto()
+    PLAYING = auto()
+    PAUSED = auto()
+
 class TimeoutReason(StrEnum):
     NO_HUMANS = auto()
     IDLE = auto()
@@ -68,16 +74,28 @@ class music_cog(commands.Cog):
         return ctx.guild is not None
 
     # 2. State helpers
-
     def get_vc(self) -> discord.VoiceClient | None:
-        if self.vc is not None and self.vc.is_connected():
-            return self.vc
-        return None
+        if self.vc is None or not self.vc.is_connected():
+            return None
+        return self.vc
+
+    def playback_state(self) -> PlaybackState:
+        vc = self.get_vc()
+        if vc is None:
+            return PlaybackState.DISCONNECTED
+        if vc.is_paused():
+            return PlaybackState.PAUSED
+        
+        if vc.is_playing():
+            return PlaybackState.PLAYING
+
+        return PlaybackState.IDLE
 
     async def ensure_voice_client(self, channel):
         vc = self.get_vc()
-
-        if vc is None or not vc.is_connected():
+        state = self.playback_state()
+        
+        if vc is None:
             vc = await channel.connect()
             self.vc = vc
             return vc
@@ -179,8 +197,8 @@ class music_cog(commands.Cog):
         Ususally called after adding a song to the queue.
         """
         vc = self.get_vc()
-
-        if vc is not None and (vc.is_playing() or vc.is_paused()):
+        state = self.playback_state()
+        if state in (PlaybackState.DISCONNECTED, PlaybackState.PLAYING, PlaybackState.PAUSED):
             return
         
         await self.play_next(ctx=ctx)
@@ -367,20 +385,23 @@ class music_cog(commands.Cog):
             return
         
         channel = voice.channel
-        vc = self.get_vc()
+        state = self.playback_state()
 
 
         # Join voice channel without previous connection
-        if vc is None:
+        if state == PlaybackState.DISCONNECTED:
             self.vc = await channel.connect()
             self.start_timeout(TimeoutReason.IDLE)
             await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_CONNECTED.format(channel=channel.name)))
             logger.info(msg.LOG_JOIN_CHANNEL_CONNECT.format(channel=channel.name))
             return
 
+        vc = self.get_vc()
+        assert vc is not None
+
         # Join current voice channel
         if vc.channel == channel:
-            if not vc.is_playing() and not vc.is_paused():
+            if state == PlaybackState.IDLE:
                 self.start_timeout(TimeoutReason.IDLE)
 
             await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SAME_CHANNEL))
@@ -388,7 +409,7 @@ class music_cog(commands.Cog):
             return  
 
         # Avoid switching voice channels while playing
-        if vc.is_playing() or vc.is_paused():
+        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_OTHER_CHANNEL))        
             logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name))
             return
@@ -405,20 +426,19 @@ class music_cog(commands.Cog):
     @commands.command(name="play", aliases=["p", "pl"], help=msg.HELP_MESSAGES['play'], usage=msg.HELP_USAGES['play'])
     async def play(self, ctx, *args):
         self.set_session_text_channel_once(ctx)
-        user = ctx.author.name
-        
+
         if not args:
             logger.warning(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
             return
         
-        voice = ctx.author.voice
-        if voice is None or voice.channel is None:
+        user_voice = ctx.author.voice
+        if user_voice is None or user_voice.channel is None:
             logger.warning(msg.LOG_PLAY_FAILED_USER_ABSENT.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
         
-        channel = voice.channel
+        channel = user_voice.channel
         query = " ".join(args)
         song = await self.search_yt(query)
 
@@ -433,7 +453,7 @@ class music_cog(commands.Cog):
 
         if not isinstance(source, str) or not source:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_NOT_FOUND))
-            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=user))
+            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
             return 
 
         if duration > 1200:
@@ -441,11 +461,9 @@ class music_cog(commands.Cog):
             logger.warning(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             return
 
-        vc = self.get_vc()
+        state = self.playback_state()
 
-        already_active = vc is not None and (vc.is_playing() or vc.is_paused())
-
-        if already_active:
+        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             await ctx.send(embed=self.add_song_info(song, ctx.author))
         else:
             await ctx.send(embed=discord.Embed(description=msg.NOW_PLAYING.format(title=title, source=source)))  
@@ -455,8 +473,6 @@ class music_cog(commands.Cog):
 
         logger.info(msg.LOG_PLAY_ADD_TO_QUEUE_EXECUTED.format(title=title, source=source))
 
-        if not already_active:
-            await self.play_music(ctx)
 
 
     @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
@@ -490,75 +506,90 @@ class music_cog(commands.Cog):
 
     @commands.command(name="pause", help="Pauses the current song being played.", usage="!pause")
     async def pause(self, ctx, *args):
-        vc = self.get_vc()
+        state = self.playback_state()
 
-        if vc is None:
+        if state == PlaybackState.DISCONNECTED:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
             return 
+        
+        vc = self.get_vc()
+        assert vc is not None
 
-        if vc.is_playing():
+        if state == PlaybackState.IDLE:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
+            return 
+
+        if state == PlaybackState.PLAYING:
             vc.pause()
             self.start_timeout(TimeoutReason.PAUSED)
             await ctx.send(embed=discord.Embed(description=msg.PAUSED))
             return
         
-        if vc.is_paused():
-            await self.resume(ctx, *args)
-            return 
-
-        await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
+        await self.resume(ctx, *args)
+        
         
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
     async def resume(self, ctx):
-        user = ctx.author.name 
-        vc = self.get_vc()
+        state = self.playback_state()
 
-        if vc is None:
+        if state == PlaybackState.DISCONNECTED:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+            logger.warning(msg.LOG_RESUME_FAILED_NOT_CONNECTED.format(user=ctx.author.name))
             return            
-
-        if vc.is_playing():
+        
+        if state == PlaybackState.PLAYING:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_ALREADY_PLAYING))
+            logger.info(msg.LOG_RESUME_FAILED_ALREADY_PLAYING.format(user=ctx.author.name))
             return
 
-        if vc.is_paused():
-            vc.resume()
-            self.cancel_timeout()
-            await ctx.send(embed=discord.Embed(description=msg.RESUME))
-            logger.info(msg.LOG_RESUME_EXECUTED.format(user=user))
-            return
+        if state != PlaybackState.PAUSED:
+            await ctx.send(embed=discord.Embed(description=msg))
+            logger.info(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=ctx.author.name))
+            return 
 
-        await ctx.send(embed=discord.Embed(description=msg.LOG_RESUME_FAILED_NOT_PAUSED))
-        logger.warning(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=user))
+        vc = self.get_vc()
+        assert vc is not None
+        
+        vc.resume()
+        self.cancel_timeout()
+
+        await ctx.send(embed=discord.Embed(description=msg.RESUME))
+        logger.info(msg.LOG_RESUME_EXECUTED.format(user=ctx.author.name))
 
 
     @commands.command(name="skip", aliases=["s"], help=msg.HELP_MESSAGES['skip'], usage=msg.HELP_USAGES['skip'])
     async def skip(self, ctx):
-        user = ctx.author.name
+        state = self.playback_state()        
 
-
-        voice = ctx.author.voice
-        if not voice or not voice.channel:
-            logger.warning(msg.LOG_JOIN_FAILED_USER_ABSENT.format(user=user, channel="unknown"))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
-            return
-        
-        channel = voice.channel.name
-
-        vc = self.get_vc()
-        if vc is None:
-            logger.warning(msg.LOG_SKIP_FAILED_BOT_ABSENT.format(user=user, channel=channel))
+        if state == PlaybackState.DISCONNECTED:
+            logger.info(msg.LOG_SKIP_FAILED_BOT_ABSENT.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_IN_VOICE_CHANNEL))
             return
         
-        if self.current_song is None:
-            logger.warning(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=channel))
+        vc = self.get_vc()
+        assert vc is not None
+
+        user = ctx.author.name
+        user_voice = ctx.author.voice
+
+        if not user_voice or not user_voice.channel:
+            logger.info(msg.LOG_JOIN_FAILED_USER_ABSENT.format(user=user, channel=vc.channel.name))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
+            return
+
+        if user_voice.channel != vc.channel:
+            logger.info(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=vc.channel.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
             return
         
-        if not vc.is_playing() and not vc.is_paused():
-            logger.warning(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=channel))
+        if state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            logger.info(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=vc.channel.name))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
+            return
+
+        if self.current_song is None:
+            logger.info(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=vc.channel.name)) 
             await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
             return
 
@@ -697,7 +728,6 @@ class music_cog(commands.Cog):
 
     @commands.command(name="clear", aliases=["c", "bin"], help=msg.HELP_MESSAGES['clear'], usage=msg.HELP_USAGES['clear'])
     async def clear(self, ctx):
-        vc = self.get_vc()
         
         user = ctx.author.name
 
@@ -710,13 +740,18 @@ class music_cog(commands.Cog):
         self.current_song = None
         self.queue_duration = 0
 
-        if vc is None:
+        state = self.playback_state()
+        if state == PlaybackState.DISCONNECTED:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
             logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
             return
         
-        if vc.is_playing() or vc.is_paused():
+        vc = self.get_vc()
+        assert vc is not None
+
+        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             vc.stop()
+
         self.start_timeout(TimeoutReason.IDLE)
 
         await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
