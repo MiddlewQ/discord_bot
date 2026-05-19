@@ -220,7 +220,7 @@ class music_cog(commands.Cog):
             duration = song_info.get("duration") or 0
 
             if not isinstance(source, str) or not source:
-                logger.warning(f"Skiping queue item with invalid source: {song_info}")
+                logger.info(f"Skiping queue item with invalid source: {song_info}")
 
                 if ctx is not None:
                     await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SONG))
@@ -364,8 +364,8 @@ class music_cog(commands.Cog):
         state = self.playback_state()
 
         if len(humans) == 0:
-            logger.info(msg.LOG_TIMEOUT_NO_HUMANS.format(channel=vc.channel.name))
             self.start_timeout(TimeoutReason.NO_HUMANS)
+            return 
 
         if state == PlaybackState.PLAYING:
                 self.cancel_timeout()
@@ -430,13 +430,13 @@ class music_cog(commands.Cog):
         self.set_session_text_channel_once(ctx)
 
         if not args:
-            logger.warning(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
+            logger.info(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
             return
         
         user_voice = ctx.author.voice
         if user_voice is None or user_voice.channel is None:
-            logger.warning(msg.LOG_PLAY_FAILED_USER_ABSENT.format(user=ctx.author.name))
+            logger.info(msg.LOG_PLAY_FAILED_USER_ABSENT.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
         
@@ -445,7 +445,7 @@ class music_cog(commands.Cog):
         song = await self.search_yt(query)
 
         if song is None:
-            logger.warning(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
+            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_NOT_FOUND))
             return
         
@@ -460,7 +460,7 @@ class music_cog(commands.Cog):
 
         if duration > 1200:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_TOO_LONG))
-            logger.warning(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
+            logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             return
 
         state = self.playback_state()
@@ -483,8 +483,7 @@ class music_cog(commands.Cog):
     @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
     async def multiplay(self, ctx, *args):
         if not args:
-            logger.warning
-            logger.warning(msg.LOG_MULTIPLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
+            logger.info(msg.LOG_MULTIPLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
             return 
         
@@ -539,7 +538,7 @@ class music_cog(commands.Cog):
 
         if state == PlaybackState.DISCONNECTED:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-            logger.warning(msg.LOG_RESUME_FAILED_NOT_CONNECTED.format(user=ctx.author.name))
+            logger.info(msg.LOG_RESUME_FAILED_NOT_CONNECTED.format(user=ctx.author.name))
             return            
         
         if state == PlaybackState.PLAYING:
@@ -697,7 +696,7 @@ class music_cog(commands.Cog):
         user = ctx.author.name
 
         if not self.music_queue:
-            logger.warning(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
+            logger.info(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_QUEUE_EMPTY))
             return
         
