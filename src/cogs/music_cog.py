@@ -192,15 +192,13 @@ class music_cog(commands.Cog):
 
     # 4. Core playback internals
     async def play_music(self, ctx):
-        """
-        Start playback if the bot is not already playing.
-        Ususally called after adding a song to the queue.
-        """
-        vc = self.get_vc()
+        """Start playback if the bot is not already playing."""
         state = self.playback_state()
-        if state in (PlaybackState.DISCONNECTED, PlaybackState.PLAYING, PlaybackState.PAUSED):
-            return
         
+        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            logger.debug(msg.LOG_PLAY_NEXT_IGNORE_ALREADY_PLAYING.format(state=state))
+            return 
+
         await self.play_next(ctx=ctx)
 
     async def play_next(self, ctx=None, error=None):
@@ -287,7 +285,6 @@ class music_cog(commands.Cog):
             raise ValueError("yt-dlp returned invalid data")
         
         return data
-
 
     # 5. Idle / cleanup internals
     def start_timeout(self, reason: TimeoutReason):
@@ -462,17 +459,20 @@ class music_cog(commands.Cog):
             return
 
         state = self.playback_state()
+        should_start = state not in (PlaybackState.PLAYING, PlaybackState.PAUSED)
 
-        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            await ctx.send(embed=self.add_song_info(song, ctx.author))
-        else:
+        if should_start:
             await ctx.send(embed=discord.Embed(description=msg.NOW_PLAYING.format(title=title, source=source)))  
+        else:
+            await ctx.send(embed=self.add_song_info(song, ctx.author))
         
         self.music_queue.append([song, channel])
         self.queue_duration += duration
 
         logger.info(msg.LOG_PLAY_ADD_TO_QUEUE_EXECUTED.format(title=title, source=source))
 
+        if should_start:
+            await self.play_music(ctx)
 
 
     @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
@@ -544,7 +544,7 @@ class music_cog(commands.Cog):
             return
 
         if state != PlaybackState.PAUSED:
-            await ctx.send(embed=discord.Embed(description=msg))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PAUSED))
             logger.info(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=ctx.author.name))
             return 
 
@@ -579,8 +579,8 @@ class music_cog(commands.Cog):
             return
 
         if user_voice.channel != vc.channel:
-            logger.info(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=vc.channel.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
+            logger.info(msg.LOG_SKIP_FAILED_USER_DIFFERENT_CHANNEL.format(user=user, user_vc=user_voice.name, vc=vc.channel.name))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_OTHER_CHANNEL))
             return
         
         if state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
