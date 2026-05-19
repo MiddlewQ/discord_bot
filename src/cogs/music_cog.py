@@ -373,7 +373,6 @@ class music_cog(commands.Cog):
         # Join voice channel without previous connection
         if vc is None:
             self.vc = await channel.connect()
-            logger.info("test")
             self.start_timeout(TimeoutReason.IDLE)
             await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_CONNECTED.format(channel=channel.name)))
             logger.info(msg.LOG_JOIN_CHANNEL_CONNECT.format(channel=channel.name))
