@@ -282,7 +282,7 @@ class music_cog(commands.Cog):
 
         
         self.timeout_task = asyncio.create_task(
-            self.disconnect_after_timeout(policy)
+            self.disconnect_after_timeout(reason)
         )
 
     def cancel_timeout(self):
@@ -295,19 +295,21 @@ class music_cog(commands.Cog):
         if task is not asyncio.current_task():
             task.cancel()
 
-    async def disconnect_after_timeout(self, policy: TimeoutPolicy):
+    async def disconnect_after_timeout(self, reason: TimeoutReason):
+        policy = TIMEOUT_POLICIES[reason]
+
         try:
-            logger.info(msg.LOG_TIMEOUT_IDLE.format(channel="unknown"))
-            seconds = policy.seconds
-            while seconds > 0:
-                await asyncio.sleep(1)
-                logger.info(f"Seconds left: {seconds}")
-                seconds -= 1
+            await asyncio.sleep(policy.seconds)
+
+            vc = self.get_vc()
+            channel_name = vc.channel.name if vc is not None and vc.channel else "unknown"
+
+            logger.info(policy.log_message.format(channel=channel_name))
             await self.cleanup_voice(policy.discord_message)
         except asyncio.CancelledError:
             pass
 
-    async def cleanup_voice(self, reason):
+    async def cleanup_voice(self, message: str):
         self.cancel_timeout()
 
         vc = self.get_vc()
@@ -319,12 +321,12 @@ class music_cog(commands.Cog):
         self.queue_duration = 0
         self.vc = None
 
-        logger.info(f"Disconnected from voice: {reason}")
+        logger.info(f"Disconnected from voice.")
 
         if self.session_text_channel is not None:
             await self.session_text_channel.send(
                 embed=discord.Embed(
-                    description=f":gear: Disconnected from voice channel: {reason}"
+                    description=message
                 )
         )
     
