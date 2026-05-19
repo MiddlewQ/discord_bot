@@ -2,7 +2,6 @@ import discord
 import asyncio
 from discord.ext import commands
 from yt_dlp import YoutubeDL
-# from bot_state import PlaybackState
 from enum import StrEnum, auto
 from dataclasses import dataclass
 
@@ -17,7 +16,6 @@ class TimeoutReason(StrEnum):
     NO_HUMANS = auto()
     IDLE = auto()
     PAUSED = auto()
-    USER_STOPPED = auto()
 
 @dataclass(frozen=True)
 class TimeoutPolicy:

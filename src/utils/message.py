@@ -76,6 +76,9 @@ REMOVED_QUEUE_INDEX         = ":gear: Removed {title} from queue."
 SONG_REMOVED                = ":gear: Song: {title} removed."
 FAIL_INVALID_INDEX          = ":gear: Invalid position in queue."
 
+# Stop
+STOPPED_BY_USER             = ":gear: Stopped by user."
+
 # Timeout
 TIMEOUT_NO_HUMANS        = ":gear: Leaving voice because there are no humans left in the channel."
 TIMEOUT_PAUSED           = ":gear: Leaving voice because playback has been paused for too long."
@@ -134,6 +137,7 @@ LOG_REMOVE_LAST_EXECUTED = "Removed last song at index {index} by '{user}'"
 
 # Stop command logs
 LOG_STOP_EXECUTED = "Music playback stopped, queue cleared and disconnect form '{channel}' by'{user}'."
+
 LOG_STOP_CLEAR = "Cleared queue while stopping"
 LOG_STOP_FAILED = ""
 
