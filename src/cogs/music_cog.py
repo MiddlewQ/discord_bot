@@ -93,7 +93,6 @@ class music_cog(commands.Cog):
 
     async def ensure_voice_client(self, channel):
         vc = self.get_vc()
-        state = self.playback_state()
         
         if vc is None:
             vc = await channel.connect()
@@ -362,12 +361,18 @@ class music_cog(commands.Cog):
         
         humans = [m for m in vc.channel.members if not m.bot]
 
+        state = self.playback_state()
+
         if len(humans) == 0:
             logger.info(msg.LOG_TIMEOUT_NO_HUMANS.format(channel=vc.channel.name))
             self.start_timeout(TimeoutReason.NO_HUMANS)
-        else:
-            if vc.is_playing():
+
+        if state == PlaybackState.PLAYING:
                 self.cancel_timeout()
+        elif state == PlaybackState.PAUSED:
+            self.start_timeout(TimeoutReason.PAUSED)
+        elif state == PlaybackState.IDLE:
+            self.start_timeout(TimeoutReason.IDLE)
 
     
     # 7. Commands
@@ -462,7 +467,7 @@ class music_cog(commands.Cog):
         should_start = state not in (PlaybackState.PLAYING, PlaybackState.PAUSED)
 
         if should_start:
-            await ctx.send(embed=discord.Embed(description=msg.NOW_PLAYING.format(title=title, source=source)))  
+            await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=title, source=source)))  
         else:
             await ctx.send(embed=self.add_song_info(song, ctx.author))
         
@@ -527,7 +532,6 @@ class music_cog(commands.Cog):
         
         await self.resume(ctx, *args)
         
-        
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
     async def resume(self, ctx):
@@ -579,7 +583,7 @@ class music_cog(commands.Cog):
             return
 
         if user_voice.channel != vc.channel:
-            logger.info(msg.LOG_SKIP_FAILED_USER_DIFFERENT_CHANNEL.format(user=user, user_vc=user_voice.name, vc=vc.channel.name))
+            logger.info(msg.LOG_SKIP_FAILED_USER_DIFFERENT_CHANNEL.format(user=user, user_vc=user_voice.channel.name, vc=vc.channel.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_OTHER_CHANNEL))
             return
         
@@ -637,7 +641,7 @@ class music_cog(commands.Cog):
                 f"**Now playing**\n"
                 f"[{title}]({source})" if source else f"**Now playing**\n{title}"
             )
-            description = msg.NOW_PLAYING.format(
+            description = msg.START_PLAYBACK.format(
                 title=title,
                 source=source
             )        
@@ -751,8 +755,8 @@ class music_cog(commands.Cog):
 
         if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             vc.stop()
-
-        self.start_timeout(TimeoutReason.IDLE)
+        elif state == PlaybackState.IDLE:
+            self.start_timeout(TimeoutReason.IDLE)
 
         await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
         logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))

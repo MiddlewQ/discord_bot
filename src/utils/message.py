@@ -43,7 +43,7 @@ FAIL_PLAYING_OTHER_CHANNEL = ":gear: I am playing music in another voice channel
 FAIL_CONNECT_TO_VOICE_CHANNEL = ":gear: Could not connect to a voice channel."
 
 # Play / Playing / Multiplay
-NOW_PLAYING = ":gear: **Now Playing** [{title}]({source})"
+START_PLAYBACK = ":gear: **Starting** [{title}]({source})..."
 PLAY_NEXT = ":gear: Started Playing[{title}]({source})"
 PLAYING = ":gear: Currently playing: [{title}]({source})"
 FAIL_PLAYING_SONG = ":gear: Error playing song."
