@@ -593,12 +593,12 @@ class music_cog(commands.Cog):
         
         if state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             logger.info(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=vc.channel.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP))
             return
 
         if self.current_song is None:
             logger.info(msg.LOG_SKIP_FAILED_NO_MUSIC.format(user=user, channel=vc.channel.name)) 
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP_SONG))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_SKIP))
             return
 
         song = self.current_song[0]
@@ -606,7 +606,7 @@ class music_cog(commands.Cog):
         source = song.get("source") or ""
         
         vc.stop()
-        await ctx.send(embed=discord.Embed(description=msg.SKIP_SONG.format(title=title, source=source)))            
+        await ctx.send(embed=discord.Embed(description=msg.SKIP.format(title=title, source=source)))            
 
         logger.info(
             msg.LOG_SONG_SKIPPED.format(

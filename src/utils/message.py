@@ -62,8 +62,9 @@ FAIL_BOT_NOT_PAUSED         = ":gear: Nothing is paused."
 FAIL_BOT_NOT_PLAYING        = ":gear: Nothing is playing."
 
 # Skip
-SKIP_SONG                   = ":gear: [{title}]({source}) was skipped."
-FAIL_SKIP_SONG              = ":gear: There's no song playing to skip."
+SKIP                        = ":gear: [{title}]({source}) was skipped."
+FAIL_SKIP                   = ":gear: There's no song playing to skip."
+FAIL_PAUSE_NOT_PLAYING      = ":gear: Nothing is playing to pause."
 
 # Queue / Clear
 QUEUE_STATUS                = 'Music Queue | {channel_name}'
@@ -117,6 +118,7 @@ LOG_MULTIPLAY_FAILED_NO_ARGS            = "Multiplay command failed: No argument
 # Pause command logs
 LOG_PAUSE_EXECUTED                      = "Pause command executed: Paused by '{user}'."
 LOG_PAUSE_FAILED_NOT_PLAYING            = "Pause command failed: No music is playing when attempted by '{user}'."
+LOG_PAUSE_FAILED_NOT_CONNECTED          = "Pause command failed: Not connected to a server when attempted by '{user}'."
 
 # Resume command logs
 LOG_RESUME_EXECUTED                     = "Resume command executed: Resumed by '{user}'."
@@ -133,10 +135,10 @@ LOG_CLEAR_EMPTY_EXECUTED                = "Empty Music queue cleared by '{user}'
 LOG_CLEAR_EXECUTED                      = "Music queue cleared by '{user}'."
 
 # Remove command logs
-LOG_REMOVE_FAILED_NO_QUEUE              = "Remove command failed: No songs in queue when attempted by '{user}'."
-LOG_REMOVE_FAILED_INVALID_INDEX         = "Remove command failed: Invalid index '{index}' provided."
 LOG_REMOVE_EXECUTED                     = "Song at index {index} removed by '{user}', remaining queue length {queue_length}."
 LOG_REMOVE_LAST_EXECUTED                = "Removed last song at index {index} by '{user}'"
+LOG_REMOVE_FAILED_NO_QUEUE              = "Remove command failed: No songs in queue when attempted by '{user}'."
+LOG_REMOVE_FAILED_INVALID_INDEX         = "Remove command failed: Invalid index '{index}' provided."
 
 # Stop command logs
 LOG_STOP_EXECUTED                       = "Music playback stopped, queue cleared and disconnect form '{channel}' by'{user}'."
@@ -144,16 +146,18 @@ LOG_STOP_CLEAR                          = "Cleared queue while stopping"
 LOG_STOP_FAILED                         = ""
 
 # Skip Log
-LOG_SONG_SKIPPED                        = "Song '{title}' was skipped by user '{user}' in guild '{guild}'."
+LOG_SONG_SKIPPED                        = "Skip command executed: Song '{title}' was skipped by user '{user}' in guild '{guild}'."
 LOG_SKIP_FAILED_BOT_ABSENT              = "Skip command failed: User '{user}' attempted to skip song but the bot is not connected to a channel."
 LOG_SKIP_FAILED_USER_ABSENT             = "Skip command failed: User '{user}' attempted to skip song but the user is not connected to the voice channel '{channel}'."
-LOG_SKIP_FAILED_USER_DIFFERENT_CHANNEL  =  "Skip command failed: User '{user}' attempted to skip from voice channel '{user_vc}', but the bot is in '{bot_vc}'."
+LOG_SKIP_FAILED_USER_DIFFERENT_CHANNEL  = "Skip command failed: User '{user}' attempted to skip from voice channel '{user_vc}', but the bot is in '{bot_vc}'."
 LOG_SKIP_FAILED_NO_MUSIC                = "Skip command failed: User '{user}' attempted to skip song in channel '{channel}' but no song is currently playing."
 
+# Connection
 LOG_CONNECTED_TO_CHANNEL                = "Bot connected to voice channel '{channel}'."
 LOG_MOVED_TO_CHANNEL                    = "Bot moved to another channel '{channel}'."
 LOG_ALREADY_IN_CHANNEL                  = "User '{user}' attempted to join the same channel where the bot is already connected."
 
+# Status
 LOG_STATUS_EXECUTED                     = "User '{user}' executed status command in '{channel_name}'."
 
 # LOG PAGINATION
