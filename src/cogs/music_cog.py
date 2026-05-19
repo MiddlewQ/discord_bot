@@ -276,8 +276,7 @@ class music_cog(commands.Cog):
         policy = TIMEOUT_POLICIES[reason]
         self.cancel_timeout()
     
-        logger.info(f"Starting timeout: reason={reason}, seconds={policy.seconds}")
-
+        logger.info(msg.LOG_TIMEOUT_START.format(reason=reason, seconds=policy.seconds))
         
         self.timeout_task = asyncio.create_task(
             self.disconnect_after_timeout(reason)
@@ -328,6 +327,7 @@ class music_cog(commands.Cog):
                 )
         )
     
+
     # 6. Listeners
     @commands.Cog.listener()
     async def on_command(self, ctx):
@@ -729,7 +729,7 @@ class music_cog(commands.Cog):
         voice = ctx.author.voice
         channel_name = voice.channel.name if voice and voice.channel else "unknown"
 
-        await self.cleanup_voice("Stopped by user.")
+        await self.cleanup_voice(msg.STOPPED_BY_USER)
         
         logger.info(msg.LOG_STOP_EXECUTED.format(channel=channel_name, user=ctx.author.name))
 
