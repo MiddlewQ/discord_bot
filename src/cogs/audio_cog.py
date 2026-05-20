@@ -12,6 +12,11 @@ from src.utils.partionation import PaginationView
 
 logger = logging.getLogger("audio")
 
+@dataclass
+class QueueEntry:
+    track: dict
+    channel: discord.VoiceChannel
+
 class PlaybackState(StrEnum):
     DISCONNECTED = auto()
     IDLE = auto()
@@ -53,9 +58,9 @@ class AudioCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         
-        self.current_track = None
-        self.track_queue = []
-        self.queued_duration_seconds = 0
+        self.current_track: QueueEntry | None = None
+        self.track_queue: list[QueueEntry] = []
+        self.queued_duration_seconds: int = 0
         self.logger = logger
 
         self.timeout_task = None
@@ -208,8 +213,8 @@ class AudioCog(commands.Cog):
 
         while self.track_queue:
             queue_item = self.track_queue.pop(0)
-            track = queue_item[0]
-            channel = queue_item[1]
+            track = queue_item.track
+            channel = queue_item.channel
 
             webpage_url = track.get("webpage_url")
             duration = track.get("duration") or 0
@@ -377,7 +382,7 @@ class AudioCog(commands.Cog):
 
         voice = ctx.author.voice
         if voice is None or voice.channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL))
             logger.info(msg.LOG_JOIN_FAILED_USER_ABSENT.format(user=ctx.author.name))
             return
         
@@ -401,13 +406,13 @@ class AudioCog(commands.Cog):
             if state == PlaybackState.IDLE:
                 self.start_timeout(TimeoutReason.IDLE)
 
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_SAME_CHANNEL))
+            await ctx.send(embed=discord.Embed(description=msg.JOIN_FAIL_PLAYING_SAME_CHANNEL))
             logger.info(msg.LOG_JOIN_FAILED_USER_CHANNEL_SAME.format(user=ctx.author.name))
             return  
 
         # Avoid switching voice channels while playing
         if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_OTHER_CHANNEL))        
+            await ctx.send(embed=discord.Embed(description=msg.JOIN_FAIL_PLAYING_OTHER_CHANNEL))        
             logger.info(msg.LOG_JOIN_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name))
             return
         
@@ -416,7 +421,7 @@ class AudioCog(commands.Cog):
         await vc.move_to(channel)
         self.start_timeout(TimeoutReason.IDLE)
 
-        await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_MOVED.format(channel=channel.name)))
+        await ctx.send(embed=discord.Embed(description=msg.JOIN_BOT_CHANNEL_MOVED.format(channel=channel.name)))
         logger.info(msg.LOG_JOIN_CHANNEL_MOVE.format(old=old_channel, new=channel.name))
 
 
@@ -426,22 +431,21 @@ class AudioCog(commands.Cog):
 
         if not args:
             logger.info(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return
         
         user_voice = ctx.author.voice
         if user_voice is None or user_voice.channel is None:
             logger.info(msg.LOG_PLAY_FAILED_USER_ABSENT.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
         
-        channel = user_voice.channel
         query = " ".join(args)
         track = await self.search_youtube(query)
 
         if track is None:
             logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_NOT_FOUND))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_NOT_FOUND))
             return
         
         title = track.get("title") or "Unknown title"
@@ -449,27 +453,38 @@ class AudioCog(commands.Cog):
         duration = track.get("duration") or 0
 
         if not isinstance(webpage_url, str) or not webpage_url:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_NOT_FOUND))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_NOT_FOUND))
             logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
             return 
 
         if duration > 1200:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_VIDEO_TOO_LONG))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_TOO_LONG))
             logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             return
 
         state = self.playback_state()
-        should_start = state not in (PlaybackState.PLAYING, PlaybackState.PAUSED)
+        vc = self.get_vc()
 
-        if should_start:
+        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            assert vc is not None
+
+            if user_voice.channel != vc.channel:
+                await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_PLAYING_OTHER_CHANNEL))
+
+
+
+        # should_start = state not in (PlaybackState.PLAYING, PlaybackState.PAUSED)
+        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+
             await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=title, webpage_url=webpage_url)))  
+        
         else:
             await ctx.send(embed=self.build_queued_track_embed(track, ctx.author))
         
-        self.track_queue.append([track, channel])
+        self.track_queue.append(QueueEntry(track=track, channel=user_voice.channel))
         self.queued_duration_seconds += duration
 
-        logger.info(msg.LOG_TRACK_QUEUED.format(title=title, webpage_url=webpage_url))
+        logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=title, webpage_url=webpage_url))
 
         if should_start:
             await self.start_playback(ctx)
@@ -479,7 +494,7 @@ class AudioCog(commands.Cog):
     async def multiplay(self, ctx, *args):
         if not args:
             logger.info(msg.LOG_MULTIPLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return 
         
         query = " ".join(args)
@@ -491,7 +506,7 @@ class AudioCog(commands.Cog):
         ]
         
         if not searches:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_NO_ARGS))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return 
 
         if len(searches) > 20:
@@ -578,12 +593,12 @@ class AudioCog(commands.Cog):
 
         if not user_voice or not user_voice.channel:
             logger.info(msg.LOG_SKIP_FAILED_USER_ABSENT.format(user=user, channel=vc.channel.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_IN_VOICE_CHANNEL))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
 
         if user_voice.channel != vc.channel:
             logger.info(msg.LOG_SKIP_FAILED_USER_DIFFERENT_CHANNEL.format(user=user, user_vc=user_voice.channel.name, bot_vc=vc.channel.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYING_OTHER_CHANNEL))
+            await ctx.send(embed=discord.Embed(description=msg.JOIN_FAIL_PLAYING_OTHER_CHANNEL))
             return
         
         if state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
@@ -596,7 +611,7 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.FAIL_NOTHING_TO_SKIP))
             return
 
-        track = self.current_track[0]
+        track = self.current_track.track
         title = track.get("title") or "Unknown title"
         webpage_url = track.get("webpage_url") or ""
         
@@ -632,7 +647,7 @@ class AudioCog(commands.Cog):
 
 
         if self.current_track is not None:
-            track = self.current_track[0]
+            track = self.current_track.track
             title = track.get("title") or "Unknown title"
             webpage_url = track.get("webpage_url") or "Unknown url"
             description = msg.QUEUE_START_PLAYBACK.format(
@@ -644,7 +659,7 @@ class AudioCog(commands.Cog):
 
 
         for idx, track in enumerate(self.track_queue, start=1):
-            track = track[0]
+            track = track.track
             title = track.get("title") or "Unknown title"
 
             data['fields'].append({
@@ -677,7 +692,7 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PLAYING))
             return 
         
-        track = self.current_track[0]
+        track = self.current_track.track
         title = track.get("title") or "Unknown title"
         webpage_url = track.get("webpage_url") or "Unknown url"
         
@@ -709,7 +724,7 @@ class AudioCog(commands.Cog):
         else:
             index = len(self.track_queue) - 1
 
-        track = self.track_queue.pop(index)[0]
+        track = self.track_queue.pop(index).track
         duration = track.get("duration") or 0
         title = track.get("title") or "Unknown title"
 
@@ -770,14 +785,14 @@ class AudioCog(commands.Cog):
     async def status(self, ctx):
         tracks = []
         for i in range(len(self.track_queue)):
-            tracks.append(self.track_queue[i][0]['title'])        
+            tracks.append(self.track_queue[i].track['title'])        
         
         vc = self.get_vc()
         if vc is None:
             return
         
         current_title = (
-            self.current_track[0].get("title") or "Unknown"
+            self.current_track.track.get("title") or "Unknown"
             if self.current_track
             else None
         )
