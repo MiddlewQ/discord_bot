@@ -1,12 +1,12 @@
-# Discord Music Bot
+# Discord Muisc Bot
 
-Hi, this is my discord music bot that uses the discord python library. 
+This is my discord music bot that uses the discord python library. 
 
 Further building on this project https://github.com/pawel02/music_bot/
 
 ## Features
-* Search Youtube videos for songs to play in discord
-* Plays songs in voice channel
+* Search YouTube videos for tracks to play in Discord
+* Plays tracks in voice channel
 * Help class for information
 * Queue & Help Pagination
 * Embed output to text channel

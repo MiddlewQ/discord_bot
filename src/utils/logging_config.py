@@ -37,10 +37,10 @@ LOGGING_CONFIG = {
             'mode': 'w',
             'formatter': "verbose"
         },
-        'file_music': {
+        'file_audio': {
             'level': "DEBUG",
             'class': "logging.FileHandler",
-            'filename': "logs/info_music.log",
+            'filename': "logs/info_audio.log",
             'mode': 'w',
             'formatter': 'verbose',
         },
@@ -63,8 +63,8 @@ LOGGING_CONFIG = {
             'level': "INFO",
             'propagate': False,
         },
-        "music": {
-            'handlers': ['console', 'file_music', 'file_errors'],
+        "audio": {
+            'handlers': ['console', 'file_audio', 'file_errors'],
             'level': "DEBUG",
             'propagate': False,
         },

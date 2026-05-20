@@ -5,8 +5,8 @@ import asyncio
 import logging
 
 #import all of the cogs
-from src.cogs.help_cog import help_cog
-from src.cogs.music_cog import music_cog
+from src.cogs.help_cog import HelpCog
+from cogs.audio_cog import AudioCog
 
 
 # Loading token from .env file
@@ -25,11 +25,11 @@ async def run_bot(prefix, token, logger):
     
     async with bot:
 
-        await bot.add_cog(help_cog(bot))
-        logger.info("Help cog initialized and added to the bot.")
+        await bot.add_cog(HelpCog(bot))
+        logger.info("HelpCog initialized and added to the bot.")
 
-        await bot.add_cog(music_cog(bot))
-        logger.info("Music cog has been initialized and added to the bot.")
+        await bot.add_cog(AudioCog(bot))
+        logger.info("AudioCog has been initialized and added to the bot.")
         
         await bot.start(token)
 

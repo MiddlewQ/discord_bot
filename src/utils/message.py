@@ -1,17 +1,17 @@
 
 HELP_MESSAGES = {
     "join": "Connect the bot to the users voice channel.",
-    "play": "Search Youtube to play video.",
-    "multiplay": "Adds up to five songs to the queue. Format: !play <search/URL> | <search/URL> | ...",
-    "pause": "Pauses the current song being played.",
-    "resume": "Resumes playing the current song.",
-    "skip": "Skips the current song that is being played or is paused.",
-    "queue": "Displays the current songs in queue.",
-    "playing": "Displays the current song being played.",
-    "remove": "Removes song at <index> or last in the queue if no argument given. ",
-    "clear": "Clear all songs from queue and stop current song.",
+    "play": "Search YouTube to play video.",
+    "multiplay": "Adds up to 20 tracks to the queue. Format: !play <search/URL> | <search/URL> | ...",
+    "pause": "Pauses the current track being played.",
+    "resume": "Resumes playing the current track.",
+    "skip": "Skips the current track that is being played or is paused.",
+    "queue": "Displays the current track in queue.",
+    "playing": "Displays the current track being played.",
+    "remove": "Removes track at <index> or last in the queue if no argument given. ",
+    "clear": "Clear all tracks from queue and stop the current track.",
     "stop": "Disconnects the bot from the voice channel and clears queue.",
-    "status": "Gives the music_cog attributes."
+    "status": "Gives the AudioCog attributes."
 }
 
 HELP_USAGES = {
@@ -38,44 +38,43 @@ FAIL_BOT_NOT_CONNECTED          = ":gear: I am not connected to a voice channel.
 FAIL_BOT_ALREADY_CONNECTED      = ":gear: Already connected to {channel}."
 
 # Join - Empty so far
-FAIL_PLAYING_SAME_CHANNEL       = ":gear: I am already playing music in this voice channel."
-FAIL_PLAYING_OTHER_CHANNEL      = ":gear: I am playing music in another voice channel."
+FAIL_PLAYING_SAME_CHANNEL       = ":gear: I am already playing audio in this voice channel."
+FAIL_PLAYING_OTHER_CHANNEL      = ":gear: I am playing audio in another voice channel."
 FAIL_CONNECT_TO_VOICE_CHANNEL   = ":gear: Could not connect to a voice channel."
 
 # Play / Playing / Multiplay
-START_PLAYBACK                  = ":gear: **Starting** [{title}]({source})..."
-PLAY_NEXT                       = ":gear: Started Playing[{title}]({source})"
-PLAYING                         = ":gear: Currently playing: [{title}]({source})"
-FAIL_PLAYING_SONG               = ":gear: Error playing song."
+START_PLAYBACK                  = ":gear: **Starting** [{title}]({webpage_url})..."
+PLAY_NEXT                       = ":gear: Started Playing [{title}]({webpage_url})"
+PLAYING                         = ":gear: Currently playing [{title}]({webpage_url})"
+FAIL_PLAYBACK                   = ":gear: Error playing track."
 FAIL_VIDEO_NOT_FOUND            = ":gear: Could not find any video."
 FAIL_VIDEO_TOO_LONG             = ":gear: Max video length: 20 minutes."
-FAIL_NO_ARGS                    = ":gear: No arguments were provided. Please specify a song or URL to play."
+FAIL_NO_ARGS                    = ":gear: No arguments were provided. Please specify a search term or URL."
 
-# Search Youtube & FFMPEG
-FAIL_INCORRECT_FORMAT           = ":gear: Could not download the song. Incorrect format try another keyword. This could be due to playlist or a livestream format."
+# Search YouTube & FFMPEG
+FAIL_INCORRECT_FORMAT           = ":gear: Could not download the track. Incorrect format try another keyword. This could be due to playlist or a livestream format."
 
 # Pause / Resume / Playing
 PAUSED                          = ":gear: Paused."
-RESUME                          = ":gear: Resuemed."
+RESUMED                         = ":gear: Resuemed."
 FAIL_BOT_ALREADY_PLAYING        = ":gear: I am already playing."
 FAIL_BOT_NOT_PAUSED             = ":gear: Nothing is paused."
 FAIL_BOT_NOT_PLAYING            = ":gear: Nothing is playing."
 
 # Skip
-SKIP                            = ":gear: [{title}]({source}) was skipped."
-FAIL_SKIP                       = ":gear: There's no song playing to skip."
+TRACK_SKIPPED                   = ":gear: [{title}]({webpage_url}) was skipped."
+FAIL_NOTHING_TO_SKIP            = ":gear: There's no track playing to skip."
 FAIL_PAUSE_NOT_PLAYING          = ":gear: Nothing is playing to pause."
 
 # Queue / Clear
-QUEUE_STATUS                    = 'Music Queue | {channel_name}'
+QUEUE_STATUS                    = 'Track Queue | {channel_name}'
 QUEUE_EMPTY                     = ":gear: Queue is empty."
 QUEUE_CLEARED                   = ":gear: Queue cleared."
-FAIL_QUEUE_EMPTY                = ":gear: No music in queue."
+QUEUE_START_PLAYBACK            = ":gear: Now playing: [{title}]({webpage_url})"
 
+FAIL_QUEUE_EMPTY                = ":gear: No tracks in queue."
 # Remove
-REMOVED_QUEUE_LAST              = ":gear: Removed last song of list."
-REMOVED_QUEUE_INDEX             = ":gear: Removed {title} from queue."
-SONG_REMOVED                    = ":gear: Song: {title} removed."
+TRACK_REMOVED                   = ":gear: Track {title} removed at position {index}."
 FAIL_INVALID_INDEX              = ":gear: Invalid position in queue."
 
 # Stop
@@ -90,69 +89,68 @@ TIMEOUT_IDLE                    = ":gear: Leaving voice because nothing has been
 # Logger
 # -----------------------------------------------------------------------------------------------------------------
 # 
-    
-# Join command logs
+
 LOG_JOIN_CHANNEL_CONNECT                = "Join command executed: Connected to new voice channel '{channel}'."
 LOG_JOIN_CHANNEL_MOVE                   = "Join command executed: Moved voice channel from '{old}' to '{new}'."
 LOG_JOIN_FAILED_USER_ABSENT             = "Join command failed: User '{user}' is not connected to a voice channel."
 LOG_JOIN_FAILED_USER_CHANNEL_SAME       = "Join command failed: User '{user}' tried to switch to same channel."
-LOG_JOIN_FAILED_USER_CHANNEL_OTHER      = "Join command failed: User '{user}' tried to connect while the bot is already playing music in another channel."
+LOG_JOIN_FAILED_USER_CHANNEL_OTHER      = "Join command failed: User '{user}' tried to connect while the bot is already playing tracks in another channel."
 
 # Play & FFMPEG/yt-dlp command logs    
-LOG_PLAY_MUSIC_EXECUTED                 = "Play music command executed: Now playing '{title}'."
-LOG_PLAY_ADD_TO_QUEUE_EXECUTED          = "Play command executed: Song '{title}' added to queue. Source: {source}."
+LOG_PLAYBACK_STARTED                    = "Play command executed: Now playing '{title}'."
+LOG_TRACK_QUEUED                        = "Play command executed: Track '{title}' added to queue. Webpage URL: {webpage_url}."
 LOG_PLAY_FAILED_USER_ABSENT             = "Play command failed: User '{user}' not connected to a voice channel."
-LOG_PLAY_FAILED_USER_CHANNEL_SAME       = "Play command failed: User '{user}' tried to switch channel while already playing music in the same channel."
-LOG_PLAY_FAILED_USER_CHANNEL_OTHER      = "Play command failed: User '{user}' tried to connect while the bot is already playing music in another channel."
+LOG_PLAY_FAILED_USER_CHANNEL_SAME       = "Play command failed: User '{user}' tried to switch channel while already playing tracks in the same channel."
+LOG_PLAY_FAILED_USER_CHANNEL_OTHER      = "Play command failed: User '{user}' tried to connect while the bot is already playing tracks in another channel."
     
 LOG_PLAY_FAILED_NO_ARGS                 = "Play command failed: No arguments provided by '{user}'."
-LOG_PLAY_FAILED_NOT_FOUND               = "Play command failed: No song found for query '{query}' by '{user}'."
-LOG_PLAY_FAILED_TOO_LONG                = "Play command failed: Song requested by {user} is too long"
+LOG_PLAY_FAILED_NOT_FOUND               = "Play command failed: No track found for query '{query}' by '{user}'."
+LOG_PLAY_FAILED_TOO_LONG                = "Play command failed: Track requested by {user} is too long"
 LOG_PLAY_NEXT_REQUEST_EXECUTED          = "Play next command executed: Now playing '{title}'."
-LOG_PLAY_NEXT_IGNORE_ALREADY_PLAYING    = "play_music ignored because audio is already active: {state}"
+LOG_PLAY_NEXT_IGNORE_ALREADY_PLAYING    = "start_playback ignored because audio is already active: {state}"
 
 # Multiplay
-LOG_MULTIPLAY_EXECUTED                  = "Multiplay command executed: {number_of_songs} songs added to the queue."
+LOG_MULTIPLAY_EXECUTED                  = "Multiplay command executed: {number_of_tracks} tracks added to the queue."
 LOG_MULTIPLAY_FAILED_NO_ARGS            = "Multiplay command failed: No arguments provided by '{user}'."
 
 # Pause command logs
 LOG_PAUSE_EXECUTED                      = "Pause command executed: Paused by '{user}'."
-LOG_PAUSE_FAILED_NOT_PLAYING            = "Pause command failed: No music is playing when attempted by '{user}'."
+LOG_PAUSE_FAILED_NOT_PLAYING            = "Pause command failed: No track is playing when attempted by '{user}'."
 LOG_PAUSE_FAILED_NOT_CONNECTED          = "Pause command failed: Not connected to a server when attempted by '{user}'."
 
 # Resume command logs
 LOG_RESUME_EXECUTED                     = "Resume command executed: Resumed by '{user}'."
 LOG_RESUME_FAILED_NOT_CONNECTED         = "Resume command failed: Not connected to a server when attempted by '{user}'"
 LOG_RESUME_FAILED_ALREADY_PLAYING       = "Resume command failed: Audio is already playing when attempted by '{user}'."
-LOG_RESUME_FAILED_NOT_PAUSED            = "Resume command failed: No music is paused when attempted by '{user}'."
+LOG_RESUME_FAILED_NOT_PAUSED            = "Resume command failed: No track is paused when attempted by '{user}'."
 
 # Queue commands logs
 LOG_QUEUE_EMPTY                         = "Queue command response empty in {channel}."
-LOG_QUEUE_DISPLAYED                     = "Queue command response showing {number_of_songs} songs in '{channel}'."
+LOG_QUEUE_DISPLAYED                     = "Queue command response showing {number_of_tracks} tracks in '{channel}'."
 
 # Clear command logs
-LOG_CLEAR_EMPTY_EXECUTED                = "Empty Music queue cleared by '{user}'."
-LOG_CLEAR_EXECUTED                      = "Music queue cleared by '{user}'."
+LOG_CLEAR_EXECUTED                      = "Clear command executed: Track queue cleared by '{user}'."
+LOG_CLEAR_EMPTY_EXECUTED                = "Clear command executed: Empty Track queue cleared by '{user}'."
 
 # Remove command logs
-LOG_REMOVE_EXECUTED                     = "Song at index {index} removed by '{user}', remaining queue length {queue_length}."
-LOG_REMOVE_LAST_EXECUTED                = "Removed last song at index {index} by '{user}'"
-LOG_REMOVE_FAILED_NO_QUEUE              = "Remove command failed: No songs in queue when attempted by '{user}'."
+LOG_REMOVE_EXECUTED                     = "Track at index {index} removed by '{user}'."
+LOG_REMOVE_LAST_EXECUTED                = "Removed last track at index {index} by '{user}'"
+LOG_REMOVE_FAILED_NO_QUEUE              = "Remove command failed: No tracks in queue when attempted by '{user}'."
 LOG_REMOVE_FAILED_INVALID_INDEX         = "Remove command failed: Invalid index '{index}' provided."
 
 # Stop command logs
-LOG_STOP_EXECUTED                       = "Music playback stopped, queue cleared and disconnect form '{channel}' by'{user}'."
+LOG_STOP_EXECUTED                       = "Audio playback stopped, queue cleared and disconnect form '{channel}' by'{user}'."
 LOG_STOP_CLEAR                          = "Cleared queue while stopping"
 LOG_STOP_FAILED                         = ""
 
 # Skip Log
-LOG_SONG_SKIPPED                        = "Skip command executed: Song '{title}' was skipped by user '{user}' in guild '{guild}'."
-LOG_SKIP_FAILED_BOT_ABSENT              = "Skip command failed: User '{user}' attempted to skip song but the bot is not connected to a channel."
-LOG_SKIP_FAILED_USER_ABSENT             = "Skip command failed: User '{user}' attempted to skip song but the user is not connected to the voice channel '{channel}'."
+LOG_TRACK_SKIPPED                       = "Skip command executed: Track '{title}' was skipped by user '{user}' in guild '{guild}'."
+LOG_SKIP_FAILED_BOT_ABSENT              = "Skip command failed: User '{user}' attempted to skip track but the bot is not connected to a channel."
+LOG_SKIP_FAILED_USER_ABSENT             = "Skip command failed: User '{user}' attempted to skip track but the user is not connected to the voice channel '{channel}'."
 LOG_SKIP_FAILED_USER_DIFFERENT_CHANNEL  = "Skip command failed: User '{user}' attempted to skip from voice channel '{user_vc}', but the bot is in '{bot_vc}'."
-LOG_SKIP_FAILED_NO_MUSIC                = "Skip command failed: User '{user}' attempted to skip song in channel '{channel}' but no song is currently playing."
+LOG_SKIP_FAILED_NO_AUDIO                = "Skip command failed: User '{user}' attempted to skip track in channel '{channel}' but no track is currently playing."
 
-# Connection
+#
 LOG_CONNECTED_TO_CHANNEL                = "Bot connected to voice channel '{channel}'."
 LOG_MOVED_TO_CHANNEL                    = "Bot moved to another channel '{channel}'."
 LOG_ALREADY_IN_CHANNEL                  = "User '{user}' attempted to join the same channel where the bot is already connected."

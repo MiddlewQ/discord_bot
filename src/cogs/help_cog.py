@@ -4,7 +4,7 @@ from src.utils.partionation import PaginationView
 from src.utils.logging_config import logging
 logger = logging.getLogger("bot")
 
-class help_cog(commands.Cog):
+class HelpCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.text_channel_list = []
