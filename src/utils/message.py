@@ -31,20 +31,15 @@ HELP_USAGES = {
     
     # Discord messages
 BOT_CHANNEL_CONNECTED           = ":gear: Connected to {channel}."
-JOIN_BOT_CHANNEL_MOVED               = ":gear: Moved to {channel}."
-PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL  = ":gear: You need to be connected to a voice channel."
+BOT_CHANNEL_MOVED               = ":gear: Moved to {channel}."
+FAIL_BOT_NOT_CONNECTED          = ":gear: You need to be connected to a voice channel."
 FAIL_BOT_NOT_IN_VOICE_CHANNEL   = ":gear: Not in a voice channel"
 FAIL_BOT_NOT_CONNECTED          = ":gear: I am not connected to a voice channel."
 FAIL_BOT_ALREADY_CONNECTED      = ":gear: Already connected to {channel}."
-PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL = (
-    ":gear: I am already playing audio in {channel}. "
-    "Join that voice channel to queue tracks."
-)
 
 # Join - Empty so far
 JOIN_FAIL_PLAYING_SAME_CHANNEL       = ":gear: I am already playing audio in this voice channel."
 JOIN_FAIL_PLAYING_OTHER_CHANNEL      = ":gear: I am playing audio in another voice channel."
-FAIL_CONNECT_TO_VOICE_CHANNEL   = ":gear: Could not connect to a voice channel."
 
 # Play / Playing / Multiplay
 START_PLAYBACK                  = ":gear: **Starting** [{title}]({webpage_url})..."
@@ -54,22 +49,25 @@ FAIL_PLAYBACK                   = ":gear: Error playing track."
 PLAY_FAIL_VIDEO_NOT_FOUND       = ":gear: Could not find any video."
 PLAY_FAIL_VIDEO_TOO_LONG        = ":gear: Max video length: 20 minutes."
 PLAY_FAIL_NO_ARGS               = ":gear: No arguments were provided. Please specify a search term or URL."
-PLAY_FAIL_PLAYING_OTHER_CHANNEL = ":gear: Already playing audio in another channel."
+PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL = (
+    ":gear: I am already playing audio in {channel}. "
+    "Join that voice channel to queue tracks."
+)
 
 # Search YouTube & FFMPEG
 FAIL_INCORRECT_FORMAT           = ":gear: Could not download the track. Incorrect format try another keyword. This could be due to playlist or a livestream format."
 
 # Pause / Resume / Playing
 PAUSED                          = ":gear: Paused."
-RESUMED                         = ":gear: Resuemed."
+RESUMED                         = ":gear: Resumed."
 FAIL_BOT_ALREADY_PLAYING        = ":gear: I am already playing."
 FAIL_BOT_NOT_PAUSED             = ":gear: Nothing is paused."
 FAIL_BOT_NOT_PLAYING            = ":gear: Nothing is playing."
 
 # Skip
-TRACK_SKIPPED                   = ":gear: [{title}]({webpage_url}) was skipped."
-FAIL_NOTHING_TO_SKIP            = ":gear: There's no track playing to skip."
-FAIL_PAUSE_NOT_PLAYING          = ":gear: Nothing is playing to pause."
+SKIP_TRACK                       = ":gear: [{title}]({webpage_url}) was skipped."
+SKIP_FAIL_NOTHING_TO_SKIP        = ":gear: There's no track playing to skip."
+SKIP_FAIL_PAUSE_NOT_PLAYING      = ":gear: Nothing is playing to pause."
 
 # Queue / Clear
 QUEUE_STATUS                    = 'Track Queue | {channel_name}'
@@ -83,7 +81,9 @@ TRACK_REMOVED                   = ":gear: Track {title} removed at position {ind
 FAIL_INVALID_INDEX              = ":gear: Invalid position in queue."
 
 # Stop
-STOPPED_BY_USER                 = ":gear: Stopped by user."
+STOP_BY_USER                    = ":gear: Stopped by user."
+STOP_FAIL_DIFFERENT_CHANNEL     = ":gear: You need to be in my current voice channel top stop playback."
+
 
 # Timeout
 TIMEOUT_NO_HUMANS               = ":gear: Leaving voice because there are no humans left in the channel."

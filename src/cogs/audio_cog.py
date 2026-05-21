@@ -382,7 +382,7 @@ class AudioCog(commands.Cog):
 
         voice = ctx.author.voice
         if voice is None or voice.channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
             logger.info(msg.LOG_JOIN_FAILED_USER_ABSENT.format(user=ctx.author.name))
             return
         
@@ -421,7 +421,7 @@ class AudioCog(commands.Cog):
         await vc.move_to(channel)
         self.start_timeout(TimeoutReason.IDLE)
 
-        await ctx.send(embed=discord.Embed(description=msg.JOIN_BOT_CHANNEL_MOVED.format(channel=channel.name)))
+        await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_MOVED.format(channel=channel.name)))
         logger.info(msg.LOG_JOIN_CHANNEL_MOVE.format(old=old_channel, new=channel.name))
 
 
@@ -437,7 +437,7 @@ class AudioCog(commands.Cog):
         user_voice = ctx.author.voice
         if user_voice is None or user_voice.channel is None:
             logger.info(msg.LOG_PLAY_FAILED_USER_ABSENT.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
             return
         
 
@@ -538,7 +538,7 @@ class AudioCog(commands.Cog):
             return 
         
         if state == PlaybackState.IDLE:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_PAUSE_NOT_PLAYING))
+            await ctx.send(embed=discord.Embed(description=msg.SKIP_FAIL_PAUSE_NOT_PLAYING))
             logger.info(msg.LOG_PAUSE_FAILED_NOT_PLAYING.format(user=user))
             return 
 
@@ -601,7 +601,7 @@ class AudioCog(commands.Cog):
 
         if not user_voice or not user_voice.channel:
             logger.info(msg.LOG_SKIP_FAILED_USER_ABSENT.format(user=user, channel=vc.channel.name))
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
             return
 
         if user_voice.channel != vc.channel:
@@ -611,12 +611,12 @@ class AudioCog(commands.Cog):
         
         if state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user, channel=vc.channel.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_NOTHING_TO_SKIP))
+            await ctx.send(embed=discord.Embed(description=msg.SKIP_FAIL_NOTHING_TO_SKIP))
             return
 
         if self.current_track is None:
             logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user, channel=vc.channel.name)) 
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_NOTHING_TO_SKIP))
+            await ctx.send(embed=discord.Embed(description=msg.SKIP_FAIL_NOTHING_TO_SKIP))
             return
 
         track = self.current_track.track
@@ -624,7 +624,7 @@ class AudioCog(commands.Cog):
         webpage_url = track.get("webpage_url") or ""
         
         vc.stop()
-        await ctx.send(embed=discord.Embed(description=msg.TRACK_SKIPPED.format(title=title, webpage_url=webpage_url)))            
+        await ctx.send(embed=discord.Embed(description=msg.SKIP_TRACK.format(title=title, webpage_url=webpage_url)))            
 
         logger.info(
             msg.LOG_TRACK_SKIPPED.format(
@@ -784,7 +784,7 @@ class AudioCog(commands.Cog):
         voice = ctx.author.voice
         channel_name = voice.channel.name if voice and voice.channel else "unknown"
 
-        await self.cleanup_voice(msg.STOPPED_BY_USER)
+        await self.cleanup_voice(msg.STOP_BY_USER)
         
         logger.info(msg.LOG_STOP_EXECUTED.format(channel=channel_name, user=ctx.author.name))
 
