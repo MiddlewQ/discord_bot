@@ -528,7 +528,7 @@ class AudioCog(commands.Cog):
 
 
     @commands.command(name="pause", help="Pauses the current track being played.", usage="!pause")
-    async def pause(self, ctx, *args):
+    async def pause(self, ctx):
         state = self.playback_state()
         user = ctx.author.name
 
