@@ -378,7 +378,6 @@ class AudioCog(commands.Cog):
     # 7. Commands
     @commands.command(name="join", aliases=['connect'], help=msg.HELP_MESSAGES['join'], usage=msg.HELP_USAGES['join'])
     async def join(self, ctx):
-        self.set_session_text_channel_once(ctx)
 
         voice = ctx.author.voice
         if voice is None or voice.channel is None:
@@ -388,7 +387,6 @@ class AudioCog(commands.Cog):
         
         channel = voice.channel
         state = self.playback_state()
-
 
         # Join voice channel without previous connection
         if state == PlaybackState.DISCONNECTED:
@@ -416,6 +414,7 @@ class AudioCog(commands.Cog):
             logger.info(msg.LOG_JOIN_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name))
             return
         
+        self.set_session_text_channel_once(ctx)
         # Move voice channel to new one
         old_channel = vc.channel.name
         await vc.move_to(channel)
@@ -427,7 +426,6 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="play", aliases=["p", "pl"], help=msg.HELP_MESSAGES['play'], usage=msg.HELP_USAGES['play'])
     async def play(self, ctx, *args):
-        self.set_session_text_channel_once(ctx)
 
         if not args:
             logger.info(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
@@ -486,7 +484,8 @@ class AudioCog(commands.Cog):
             logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             return
 
-        
+
+        self.set_session_text_channel_once(ctx)
         self.track_queue.append(QueueEntry(track=track, channel=user_channel))
         self.queued_duration_seconds += duration
 
