@@ -36,7 +36,10 @@ PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL  = ":gear: You need to be connected to a voi
 FAIL_BOT_NOT_IN_VOICE_CHANNEL   = ":gear: Not in a voice channel"
 FAIL_BOT_NOT_CONNECTED          = ":gear: I am not connected to a voice channel."
 FAIL_BOT_ALREADY_CONNECTED      = ":gear: Already connected to {channel}."
-FAIL_PLAYING_OTHER_CHANNEL      = ":gear: Already playing music in {channel}."
+PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL = (
+    ":gear: I am already playing audio in {channel}. "
+    "Join that voice channel to queue tracks."
+)
 
 # Join - Empty so far
 JOIN_FAIL_PLAYING_SAME_CHANNEL       = ":gear: I am already playing audio in this voice channel."
@@ -48,9 +51,10 @@ START_PLAYBACK                  = ":gear: **Starting** [{title}]({webpage_url}).
 PLAY_NEXT                       = ":gear: Started Playing [{title}]({webpage_url})"
 PLAYING                         = ":gear: Currently playing [{title}]({webpage_url})"
 FAIL_PLAYBACK                   = ":gear: Error playing track."
-PLAY_FAIL_VIDEO_NOT_FOUND            = ":gear: Could not find any video."
-PLAY_FAIL_VIDEO_TOO_LONG             = ":gear: Max video length: 20 minutes."
-PLAY_FAIL_NO_ARGS                    = ":gear: No arguments were provided. Please specify a search term or URL."
+PLAY_FAIL_VIDEO_NOT_FOUND       = ":gear: Could not find any video."
+PLAY_FAIL_VIDEO_TOO_LONG        = ":gear: Max video length: 20 minutes."
+PLAY_FAIL_NO_ARGS               = ":gear: No arguments were provided. Please specify a search term or URL."
+PLAY_FAIL_PLAYING_OTHER_CHANNEL = ":gear: Already playing audio in another channel."
 
 # Search YouTube & FFMPEG
 FAIL_INCORRECT_FORMAT           = ":gear: Could not download the track. Incorrect format try another keyword. This could be due to playlist or a livestream format."
@@ -102,7 +106,7 @@ LOG_PLAYBACK_STARTED                    = "Play command executed: Now playing '{
 LOG_PLAY_TRACK_QUEUED                        = "Play command executed: Track '{title}' added to queue. Webpage URL: {webpage_url}."
 LOG_PLAY_FAILED_USER_ABSENT             = "Play command failed: User '{user}' not connected to a voice channel."
 LOG_PLAY_FAILED_USER_CHANNEL_SAME       = "Play command failed: User '{user}' tried to switch channel while already playing tracks in the same channel."
-LOG_PLAY_FAILED_USER_CHANNEL_OTHER      = "Play command failed: User '{user}' tried to connect while the bot is already playing tracks in another channel."
+LOG_PLAY_FAILED_USER_CHANNEL_OTHER      = "Play command failed: User '{user}' tried to add track in {user_channel} while the bot is already playing tracks in another channel {bot_channel}."
     
 LOG_PLAY_FAILED_NO_ARGS                 = "Play command failed: No arguments provided by '{user}'."
 LOG_PLAY_FAILED_NOT_FOUND               = "Play command failed: No track found for query '{query}' by '{user}'."
