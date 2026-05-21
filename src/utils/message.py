@@ -144,9 +144,10 @@ LOG_REMOVE_FAILED_NO_QUEUE              = "Remove command failed: No tracks in q
 LOG_REMOVE_FAILED_INVALID_INDEX         = "Remove command failed: Invalid index '{index}' provided."
 
 # Stop command logs
-LOG_STOP_EXECUTED                       = "Audio playback stopped, queue cleared and disconnect form '{channel}' by'{user}'."
-LOG_STOP_CLEAR                          = "Cleared queue while stopping"
-LOG_STOP_FAILED                         = ""
+LOG_STOP_EXECUTED                       = "Stop command executed: Queue cleared and disconnected from '{channel}' by'{user}'."
+LOG_STOP_FAILED_NOT_CONNECTED           = "Stop command failed: User '{user}' attempted to stop playback " # TODO: Fix ending
+LOG_STOP_FAILED_USER_ABSENT             = "Stop command failed: User '{user}' attempted to stop playback while not connected to '{channel}'"
+LOG_STOP_FAILED_USER_DIFFERENT_CHANNEL  = "Stop command failed: User '{user}' attempted to stop playback in channel {user_vc} but the bot is in {bot_vc}." 
 
 # Skip Log
 LOG_TRACK_SKIPPED                       = "Skip command executed: Track '{title}' was skipped by user '{user}' in guild '{guild}'."

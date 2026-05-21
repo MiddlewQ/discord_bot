@@ -781,6 +781,29 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], usage=msg.HELP_USAGES['stop'])
     async def stop(self, ctx):
+        state = self.playback_state()
+
+        if state == PlaybackState.DISCONNECTED:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+            logger.info(msg.LOG_STOP_FAILED_NOT_CONNECTED.format(user=ctx.author.name))
+            return
+
+        vc = self.get_vc()
+        assert vc is not None
+
+        user_voice = ctx.author.voice
+        if user_voice is None or user_voice.channel is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+            logger.info(msg.LOG_STOP_FAILED_USER_ABSENT.format(user=ctx.author.name, channel=vc.channel.name))
+            return 
+        
+        if user_voice.channel != vc.channel:
+            await ctx.send(embed=discord.Embed(description=msg.STOP_FAIL_DIFFERENT_CHANNEL))
+            logger.info(msg.LOG_STOP_FAILED_USER_ABSENT.format(user=ctx.author.name))
+            return
+
+
+        self.set_session_text_channel_once(ctx)
         voice = ctx.author.voice
         channel_name = voice.channel.name if voice and voice.channel else "unknown"
 
