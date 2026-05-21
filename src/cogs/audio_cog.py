@@ -440,6 +440,30 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_USER_NOT_IN_VOICE_CHANNEL))
             return
         
+
+
+        state = self.playback_state()
+        user_channel = user_voice.channel
+
+        if state == PlaybackState.DISCONNECTED:
+            start_after_queue = True
+
+        else:
+            vc = self.get_vc()
+            assert vc is not None
+            if state == PlaybackState.IDLE:
+                start_after_queue = True
+            elif state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+                if user_channel != vc.channel:
+                    await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=vc.channel)))
+                    logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_channel=user_channel.name, bot_channel=vc.channel.name)) 
+                    return
+                start_after_queue = False
+            else:
+                logger.warning("Unhandled playback state in play command: %s", state)
+                return
+
+
         query = " ".join(args)
         track = await self.search_youtube(query)
 
@@ -462,33 +486,17 @@ class AudioCog(commands.Cog):
             logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             return
 
-        state = self.playback_state()
-        vc = self.get_vc()
-
-        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            assert vc is not None
-
-            if user_voice.channel != vc.channel:
-                await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_PLAYING_OTHER_CHANNEL))
-
-
-
-        # should_start = state not in (PlaybackState.PLAYING, PlaybackState.PAUSED)
-        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-
-            await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=title, webpage_url=webpage_url)))  
         
-        else:
-            await ctx.send(embed=self.build_queued_track_embed(track, ctx.author))
-        
-        self.track_queue.append(QueueEntry(track=track, channel=user_voice.channel))
+        self.track_queue.append(QueueEntry(track=track, channel=user_channel))
         self.queued_duration_seconds += duration
 
         logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=title, webpage_url=webpage_url))
 
-        if should_start:
+        if start_after_queue:
+            await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=title, webpage_url=webpage_url)))
             await self.start_playback(ctx)
-
+        else:
+            await ctx.send(embed=self.build_queued_track_embed(track, ctx.author))
 
     @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
     async def multiplay(self, ctx, *args):
