@@ -799,17 +799,14 @@ class AudioCog(commands.Cog):
         
         if user_voice.channel != vc.channel:
             await ctx.send(embed=discord.Embed(description=msg.STOP_FAIL_DIFFERENT_CHANNEL))
-            logger.info(msg.LOG_STOP_FAILED_USER_ABSENT.format(user=ctx.author.name))
+            logger.info(msg.LOG_STOP_FAILED_USER_DIFFERENT_CHANNEL.format(user=ctx.author.name, user_vc=user_voice.channel.name, bot_vc=vc.channel.name))
             return
-
-
+        
         self.set_session_text_channel_once(ctx)
-        voice = ctx.author.voice
-        channel_name = voice.channel.name if voice and voice.channel else "unknown"
-
+        
         await self.cleanup_voice(msg.STOP_BY_USER)
         
-        logger.info(msg.LOG_STOP_EXECUTED.format(channel=channel_name, user=ctx.author.name))
+        logger.info(msg.LOG_STOP_EXECUTED.format(channel=vc.channel.name, user=ctx.author.name))
 
 
     @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], usage=msg.HELP_USAGES['status'])
