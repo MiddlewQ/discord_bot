@@ -453,7 +453,7 @@ class AudioCog(commands.Cog):
                 start_after_queue = True
             elif state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
                 if user_channel != vc.channel:
-                    await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=vc.channel)))
+                    await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=vc.channel.name)))
                     logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_channel=user_channel.name, bot_channel=vc.channel.name)) 
                     return
                 start_after_queue = False
