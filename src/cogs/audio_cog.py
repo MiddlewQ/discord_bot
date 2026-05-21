@@ -828,7 +828,7 @@ class AudioCog(commands.Cog):
             f"Playing: {vc.is_playing()}\n"
             f"Paused: {vc.is_paused()}\n"
             f"Current Track: {current_title}\n"
-            # f"Queue: {', '.join(tracks)}\n"  # Join the song URLs with a comma and a space
+            f"Queue: {', '.join(tracks)}\n"  # Join the song URLs with a comma and a space
             f"Queue Duration: {self.queued_duration_seconds}\n"
             f"Voice Channel: {self.vc.channel.name if self.vc and vc.is_connected() else 'Not connected'}"
         )
