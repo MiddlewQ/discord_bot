@@ -379,7 +379,7 @@ class AudioCog(commands.Cog):
         
         return data
 
-    async def queue_track_from_query(self, ctx, query: str) -> QueueEntry | None:
+    async def resolve_queue_entry(self, ctx, query: str) -> QueueEntry | None:
 
         track = await self.search_youtube(query)
         
@@ -398,17 +398,21 @@ class AudioCog(commands.Cog):
             return None
 
         if duration > 1200:
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_TOO_LONG))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_TOO_LONG.format(minutes=1200/60)))
             logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             return None
 
-        queue_entry = QueueEntry(track=track)       
+        return QueueEntry(track=track)       
+    
+    def queue_track(self, queue_entry: QueueEntry):
+        duration = queue_entry.track.get("duration") or 0
         self.track_queue.append(queue_entry)
         self.queued_duration_seconds += duration
 
-        logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=title, webpage_url=webpage_url))
+        title = queue_entry.track.get("title") or "Unknown title"
+        webpage_url = queue_entry.track.get("webpage_url") or ""
 
-        return queue_entry
+        logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=title, webpage_url=webpage_url))
 
 
     # 5. Idle / cleanup internals
@@ -579,12 +583,7 @@ class AudioCog(commands.Cog):
 
         query = " ".join(args)
 
-        if should_connect_or_move:
-            ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
-            if not ok:
-                return
-        
-        queue_entry = await self.queue_track_from_query(ctx, query)
+        queue_entry = await self.resolve_queue_entry(ctx, query)
         if queue_entry is None:
             return
 
@@ -592,6 +591,13 @@ class AudioCog(commands.Cog):
         title = track.get("title") or "Unknown title"
         webpage_url = track.get("webpage_url") or ""        
 
+        if should_connect_or_move:
+            ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
+            if not ok:
+                return
+
+        self.queue_track(queue_entry=queue_entry)
+        
         if should_start_after_queue:
             self.session_text_channel = ctx.channel
             await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=title, webpage_url=webpage_url)))
@@ -634,7 +640,6 @@ class AudioCog(commands.Cog):
                 logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name,))
                 return
         
-
         query = " ".join(args)
         
         searches = [
@@ -646,29 +651,33 @@ class AudioCog(commands.Cog):
         if not searches:
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return 
+        
+        add_max = 20
+        if len(searches) > add_max:
+            await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_MAX_TRACKS.format(number=add_max)))
+            searches = searches[:add_max]
 
-        if len(searches) > 20:
-            await ctx.send(embed=discord.Embed(description=":gear: Max 20 tracks added simultaneously."))
-            searches = searches[:20]
-
-        if should_connect_or_move:
-            ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
-            if not ok:
-                return
-            
         queued_entries: list[QueueEntry] = []
         for search in searches:
-            queue_entry = await self.queue_track_from_query(ctx, search)
+            queue_entry = await self.resolve_queue_entry(ctx, search)
             if queue_entry is None:
                 continue
 
             queued_entries.append(queue_entry)
-            await ctx.send(embed=self.build_queued_track_embed(queue_entry.track, ctx.author))
 
         queued_count = len(queued_entries) 
 
         if queued_count == 0:
             return
+
+        if should_connect_or_move:
+            ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
+            if not ok:
+                return
+        
+        for queue_entry in queued_entries:
+            self.queue_track(queue_entry=queue_entry)
+            await ctx.send(embed=self.build_queued_track_embed(queue_entry.track, ctx.author))
 
         if should_start_after_queue:
             self.session_text_channel = ctx.channel

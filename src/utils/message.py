@@ -49,10 +49,11 @@ PLAY_NEXT                           = ":gear: **Started Playing:** [{title}]({we
 PLAYING                             = ":gear: **Currently playing:* [{title}]({webpage_url})"
 FAIL_PLAYBACK                       = ":gear: Error playing track."
 PLAY_FAIL_VIDEO_NOT_FOUND           = ":gear: Could not find any video."
-PLAY_FAIL_VIDEO_TOO_LONG            = ":gear: Max video length: 20 minutes."
+PLAY_FAIL_VIDEO_TOO_LONG            = ":gear: Max video length: {minutes} minutes."
 PLAY_FAIL_NO_ARGS                   = ":gear: No arguments were provided. Please specify a search term or URL."
 PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL  = ":gear: I am already playing audio in {channel}. Join that voice channel to queue tracks."
 MULTIPLAY_START_PLAYBACK            = ":gear: Added {number} tracks. Starting playback."
+MULTIPLAY_MAX_TRACKS                = ":gear: Max {number} tracks can be added simultaneously. Adding {number} first."
 MULTIPLAY_QUEUE_TRACKS              = ":gear: Added {number} tracks to the queue."
 
 # Search YouTube & FFMPEG
