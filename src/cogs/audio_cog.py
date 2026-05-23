@@ -75,9 +75,11 @@ class AudioCog(commands.Cog):
         self.FFMPEG_OPTIONS = {'options':        '-vn', 
                                'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5' }
 
-        self.session_text_channel: discord.abc.Messageable | None = None
+        self.session_text_channel: discord.TextChannel | discord.Thread | None = None
         self.vc = None
+
         self.ytdl = YoutubeDL(self.YDL_OPTIONS) # type: ignore
+
         self.logger.info("AudioCog initialized successfully.")
 
     async def cog_check(self, ctx: commands.Context) -> bool:
