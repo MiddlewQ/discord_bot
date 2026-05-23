@@ -15,7 +15,6 @@ logger = logging.getLogger("audio")
 @dataclass
 class QueueEntry:
     track: dict
-    channel: discord.VoiceChannel
 
 class PlaybackState(StrEnum):
     DISCONNECTED = auto()
@@ -197,22 +196,25 @@ class AudioCog(commands.Cog):
         )
         bot_user = self.bot.user
         icon_url = bot_user.display_avatar.url if bot_user is not None else None
-        embed.set_author(icon_url=icon_url, name="Added track")
+        duration = track.get("duration") or 0
+        time_until_played = max(0, self.queued_duration_seconds - duration)
         fields = [
             # Name, value, inline
             ("Track", f"[{track['title']}]({track['webpage_url']})", False),
             ("", "", False),
-            ("Estimated time until played", f"{seconds_to_time_format(self.queued_duration_seconds)}", True),
-            ("Track length", f"{seconds_to_time_format(track['duration'])}", True),
+            ("Estimated time until played", f"{seconds_to_time_format(time_until_played)}", True),
+            ("Track length", f"{seconds_to_time_format(duration)}", True),
             ("", "", True),
             ("Position in upcoming", f"{len(self.track_queue) if len(self.track_queue) > 0 else 'Next'}", True),
             ("Position in queue", f"{len(self.track_queue)+1}", True),
             ("", "", True)
         ]
+
         for name, val, inline in fields:
             embed.add_field(name=name, value=val, inline=inline)   
 
-        thumbnail = track["thumbnail"]
+        embed.set_author(icon_url=icon_url, name="Added track")
+        thumbnail = track.get("thumbnail")
         if thumbnail:
             embed.set_thumbnail(url=thumbnail)
         embed.set_footer(icon_url=requester.avatar.url, text=f"requested by {str(requester).capitalize()}") 
