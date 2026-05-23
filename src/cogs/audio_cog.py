@@ -877,34 +877,44 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="clear", aliases=["c", "bin"], help=msg.HELP_MESSAGES['clear'], usage=msg.HELP_USAGES['clear'])
     async def clear(self, ctx):
-        
-        user = ctx.author.name
+        if await self.reject_wrong_text_channel(ctx):
+            return
+
+        voice = self.get_voice_context(ctx)
 
         if self.current_track is None and not self.track_queue:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
             logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
-        
-        self.track_queue.clear()
-        self.current_track = None
-        self.queued_duration_seconds = 0
 
-        state = self.playback_state()
-        if state == PlaybackState.DISCONNECTED:
+        if voice.vc is None:
+            # If disconnected but stale queue exists, clearing ok
+            self._clear_playback_state()
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
-            logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
+            logger.info(msg.LOG_CLEAR_EXECUTED.format(user=ctx.author.name))
             return
         
-        vc = self.get_vc()
-        assert vc is not None
+        if voice.user_channel is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+            logger.info(msg.LOG_CLEAR_FAILED_USER_ABSENT.format(user=ctx.author.name, channel=voice.vc.channel.name))
+            return
 
-        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            vc.stop()
-        elif state == PlaybackState.IDLE:
+        if voice.user_channel != voice.vc.channel:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
+            logger.info(msg.LOG_CLEAR_FAILED_DIFFERENT_CHANNEL.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
+            return 
+        
+        self._clear_playback_state()
+        self.session_text_channel = None
+        
+        if voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            self.cancel_timeout()
+            voice.vc.stop()
+        elif voice.state == PlaybackState.IDLE:
             self.start_timeout(TimeoutReason.IDLE)
 
         await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
-        logger.info(msg.LOG_CLEAR_EXECUTED.format(user=user))
+        logger.info(msg.LOG_CLEAR_EXECUTED.format(user=ctx.author.name))
 
 
     @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], usage=msg.HELP_USAGES['stop'])
