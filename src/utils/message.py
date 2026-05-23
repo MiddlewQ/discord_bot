@@ -125,7 +125,7 @@ LOG_PLAY_NEXT_IGNORE_ALREADY_PLAYING    = "start_playback ignored because audio 
 
 # Multiplay
 LOG_MULTIPLAY_EXECUTED                  = "Multiplay command executed: {number_of_tracks} tracks added to the queue."
-LOG_MULTIPLAY_FAILED_NO_ARGS            = "Multiplay command failed: No arguments provided by '{user}'."
+LOG_MULTIPLAY_FAILED_NO_ARGS            = "Multiplay command failed: User '{user}' attempted to play multiple songs but no argument provided."
 
 # Pause command logs
 LOG_PAUSE_EXECUTED                      = "Pause command executed: Paused by '{user}'."
