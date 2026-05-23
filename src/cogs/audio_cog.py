@@ -924,11 +924,14 @@ class AudioCog(commands.Cog):
         queue_entry = self.track_queue.pop(index)
         track = queue_entry.track
         title = track.get("title") or "Unknown title"
-        
+
         self.subtract_track_duration(queue_entry)
+        embed = discord.Embed(description=msg.TRACK_REMOVED.format(title=title, index=index + 1))
 
-
-        await ctx.send(embed=discord.Embed(description=msg.TRACK_REMOVED.format(title=title, index=index + 1)))
+        thumbnail = track.get("thumbnail")
+        if thumbnail:
+            embed.set_thumbnail(url=thumbnail)
+        await ctx.send(embed=embed)
         
         logger.info(
             msg.LOG_REMOVE_LAST_EXECUTED.format(index=index + 1, user=ctx.author.name)
