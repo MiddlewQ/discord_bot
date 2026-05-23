@@ -423,6 +423,18 @@ class AudioCog(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if self.bot.user is not None and member.id == self.bot.user.id:
+            if before.channel is not None and after.channel is None:
+                if self.vc is None and self.session_text_channel is None:
+                    return
+
+                logger.warning("Bot was disconnected from voice. Clearing playback state.")
+                
+                text_channel = self.session_text_channel
+                self._reset_voice_session()
+
+                if text_channel is not None:
+                    await text_channel.send(embed=discord.Embed(description=msg.DISCONNECTED_FROM_VOICE))
+
             return
 
         vc = self.get_vc()
