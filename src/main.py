@@ -6,7 +6,7 @@ import logging
 
 #import all of the cogs
 from src.cogs.help_cog import HelpCog
-from cogs.audio_cog import AudioCog
+from src.cogs.audio_cog import AudioCog
 
 
 # Loading token from .env file
