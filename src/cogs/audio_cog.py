@@ -1018,8 +1018,12 @@ class AudioCog(commands.Cog):
             tracks.append(self.track_queue[i].track['title'])        
         
         vc = self.get_vc()
-        if vc is None:
-            return
+
+        voice = vc.channel.name if vc is not None and vc.is_connected() else None 
+        text = self.session_text_channel.name if self.session_text_channel else None
+        is_playing = vc.is_playing() if vc else False
+        is_paused = vc.is_paused() if vc else False
+            
         
         current_title = (
             self.current_track.track.get("title") or "Unknown"
@@ -1028,12 +1032,13 @@ class AudioCog(commands.Cog):
         )
 
         status_description = (    
-            f"Playing: {vc.is_playing()}\n"
-            f"Paused: {vc.is_paused()}\n"
+            f"Playing: {is_playing}\n"
+            f"Paused: {is_paused}\n"
             f"Current Track: {current_title}\n"
             f"Queue: {', '.join(tracks)}\n"  # Join the song URLs with a comma and a space
             f"Queue Duration: {self.queued_duration_seconds}\n"
-            f"Voice Channel: {self.vc.channel.name if self.vc and vc.is_connected() else 'Not connected'}"
+            f"Voice Channel: {voice}\n"
+            f"Text Channel: {text}"
         )
         
         embed = discord.Embed(
@@ -1041,7 +1046,6 @@ class AudioCog(commands.Cog):
             description=status_description,
             color=discord.Color.blue()
         )
-        # logger.info(msg.LOG_STATUS)
         await ctx.send(embed=embed)
 
 
