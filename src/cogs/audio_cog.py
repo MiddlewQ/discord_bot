@@ -770,8 +770,8 @@ class AudioCog(commands.Cog):
             description = "Nothing currently playing."
 
 
-        for idx, track in enumerate(self.track_queue, start=1):
-            track = track.track
+        for idx, queue_entry in enumerate(self.track_queue, start=1):
+            track = queue_entry.track
             title = track.get("title") or "Unknown title"
 
             data['fields'].append({
