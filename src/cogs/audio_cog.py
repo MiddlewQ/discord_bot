@@ -819,13 +819,31 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="remove", aliases=["rm"], help=msg.HELP_MESSAGES['remove'], usage=msg.HELP_USAGES['remove'])
     async def remove(self, ctx, *args):
-        user = ctx.author.name
+        if await self.reject_wrong_text_channel(ctx):
+            return
 
         if not self.track_queue:
             logger.info(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_QUEUE_EMPTY))
             return
         
+        
+        voice = self.get_voice_context(ctx)
+        if voice.vc is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+            logger.info(msg.LOG_REMOVE_FAILED_BOT_ABSENT.format(user=ctx.author.name))
+            return
+
+        if voice.user_channel is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+            logger.info(msg.LOG_REMOVE_FAILED_USER_ABSENT.format(user=ctx.author.name, channel=voice.vc.channel.name,))
+            return
+
+        if voice.user_channel != voice.vc.channel:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
+            logger.info(msg.LOG_REMOVE_FAILED_DIFFERENT_CHANNEL.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name,)) 
+            return
+
         if args:
             try:
                 position = int(args[0])
@@ -841,18 +859,19 @@ class AudioCog(commands.Cog):
         else:
             index = len(self.track_queue) - 1
 
-        track = self.track_queue.pop(index).track
-        duration = track.get("duration") or 0
+        queue_entry = self.track_queue.pop(index)
+        track = queue_entry.track
         title = track.get("title") or "Unknown title"
+        
+        self.subtract_track_duration(queue_entry)
 
-        self.queued_duration_seconds = max(0, self.queued_duration_seconds - duration)
 
         await ctx.send(embed=discord.Embed(description=msg.TRACK_REMOVED.format(title=title, index=index + 1)))
         
         logger.info(
-            msg.LOG_REMOVE_LAST_EXECUTED.format(index=index + 1, user=user)
+            msg.LOG_REMOVE_LAST_EXECUTED.format(index=index + 1, user=ctx.author.name)
             if not args
-            else msg.LOG_REMOVE_EXECUTED.format(index=index + 1, user=user)
+            else msg.LOG_REMOVE_EXECUTED.format(index=index + 1, user=ctx.author.name)
         )
 
 
