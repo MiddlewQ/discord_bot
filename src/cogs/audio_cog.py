@@ -379,6 +379,38 @@ class AudioCog(commands.Cog):
         
         return data
 
+    async def queue_track_from_query(self, ctx, query: str) -> QueueEntry | None:
+
+        track = await self.search_youtube(query)
+        
+        if track is None:
+            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_NOT_FOUND))
+            return None
+        
+        title = track.get("title") or "Unknown title"
+        webpage_url = track.get("webpage_url")
+        duration = track.get("duration") or 0
+
+        if not isinstance(webpage_url, str) or not webpage_url:
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_NOT_FOUND))
+            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
+            return None
+
+        if duration > 1200:
+            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_TOO_LONG))
+            logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
+            return None
+
+        queue_entry = QueueEntry(track=track)       
+        self.track_queue.append(queue_entry)
+        self.queued_duration_seconds += duration
+
+        logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=title, webpage_url=webpage_url))
+
+        return queue_entry
+
+
     # 5. Idle / cleanup internals
     def start_timeout(self, reason: TimeoutReason):
         policy = TIMEOUT_POLICIES[reason]
@@ -546,37 +578,19 @@ class AudioCog(commands.Cog):
                 return 
 
         query = " ".join(args)
-        track = await self.search_youtube(query)
-
-        if track is None:
-            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_NOT_FOUND))
-            return
-        
-        title = track.get("title") or "Unknown title"
-        webpage_url = track.get("webpage_url")
-        duration = track.get("duration") or 0
-
-        if not isinstance(webpage_url, str) or not webpage_url:
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_NOT_FOUND))
-            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
-            return 
-
-        if duration > 1200:
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_TOO_LONG))
-            logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
-            return
 
         if should_connect_or_move:
             ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
             if not ok:
                 return
-
         
-        self.track_queue.append(QueueEntry(track=track))
-        self.queued_duration_seconds += duration
+        queue_entry = await self.queue_track_from_query(ctx, query)
+        if queue_entry is None:
+            return
 
-        logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=title, webpage_url=webpage_url))
+        track = queue_entry.track
+        title = track.get("title") or "Unknown title"
+        webpage_url = track.get("webpage_url") or ""        
 
         if should_start_after_queue:
             self.session_text_channel = ctx.channel
@@ -596,6 +610,31 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return 
         
+        voice = self.get_voice_context(ctx)
+
+        if voice.user_channel is None:
+            logger.info(msg.LOG_PLAY_FAILED_USER_NOT_CONNECTED.format(user=ctx.author.name))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+            return
+        
+        should_start_after_queue = False
+        should_connect_or_move = False
+        if voice.state in (PlaybackState.DISCONNECTED, PlaybackState.IDLE):
+            should_start_after_queue = True
+            should_connect_or_move = voice.vc is None or voice.vc.channel != voice.user_channel
+
+        elif voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            if voice.vc is None:
+                logger.warning("Playback state was %s because client was missing", voice.state)
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+                return
+            
+            if voice.user_channel != voice.vc.channel:
+                await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=voice.vc.channel.name)))
+                logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name,))
+                return
+        
+
         query = " ".join(args)
         
         searches = [
@@ -609,13 +648,36 @@ class AudioCog(commands.Cog):
             return 
 
         if len(searches) > 20:
-            await ctx.send(embed=discord.Embed(description=":gear: Max 20 tracks added simultaniously."))
+            await ctx.send(embed=discord.Embed(description=":gear: Max 20 tracks added simultaneously."))
             searches = searches[:20]
 
+        if should_connect_or_move:
+            ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
+            if not ok:
+                return
+            
+        queued_entries: list[QueueEntry] = []
         for search in searches:
-            await self.play(ctx, *search.split())
+            queue_entry = await self.queue_track_from_query(ctx, search)
+            if queue_entry is None:
+                continue
 
-        logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(number_of_tracks=len(searches)))
+            queued_entries.append(queue_entry)
+            await ctx.send(embed=self.build_queued_track_embed(queue_entry.track, ctx.author))
+
+        queued_count = len(queued_entries) 
+
+        if queued_count == 0:
+            return
+
+        if should_start_after_queue:
+            self.session_text_channel = ctx.channel
+            await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_START_PLAYBACK.format(number=queued_count)))
+            await self.start_playback(ctx)
+        else:
+            await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_QUEUE_TRACKS.format(number=queued_count)))
+            
+        logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(number_of_tracks=queued_count))
 
 
     @commands.command(name="pause", help="Pauses the current track being played.", usage="!pause")

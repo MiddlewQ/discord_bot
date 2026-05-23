@@ -52,6 +52,8 @@ PLAY_FAIL_VIDEO_NOT_FOUND           = ":gear: Could not find any video."
 PLAY_FAIL_VIDEO_TOO_LONG            = ":gear: Max video length: 20 minutes."
 PLAY_FAIL_NO_ARGS                   = ":gear: No arguments were provided. Please specify a search term or URL."
 PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL  = ":gear: I am already playing audio in {channel}. Join that voice channel to queue tracks."
+MULTIPLAY_START_PLAYBACK            = ":gear: Added {number} tracks. Starting playback."
+MULTIPLAY_QUEUE_TRACKS              = ":gear: Added {number} tracks to the queue."
 
 # Search YouTube & FFMPEG
 FAIL_INCORRECT_FORMAT           = ":gear: Could not download the track. Incorrect format try another keyword. This could be due to playlist or a livestream format."
