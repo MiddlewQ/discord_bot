@@ -517,35 +517,33 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return
         
-        user_voice = ctx.author.voice
-        if user_voice is None or user_voice.channel is None:
-            logger.info(msg.LOG_PLAY_FAILED_USER_ABSENT.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-            return
         
+        voice = self.get_voice_context(ctx)
+        
+        if voice.user_channel is None:
+            logger.info(msg.LOG_PLAY_FAILED_USER_NOT_CONNECTED.format(user=ctx.author.name))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+            return
 
+        should_start_after_queue = False
+        should_connect_or_move = False
 
-        state = self.playback_state()
-        user_channel = user_voice.channel
-
-        if state == PlaybackState.DISCONNECTED:
-            start_after_queue = True
-
-        else:
-            vc = self.get_vc()
-            assert vc is not None
-            if state == PlaybackState.IDLE:
-                start_after_queue = True
-            elif state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-                if user_channel != vc.channel:
-                    await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=vc.channel.name)))
-                    logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_channel=user_channel.name, bot_channel=vc.channel.name)) 
-                    return
-                start_after_queue = False
-            else:
-                logger.warning("Unhandled playback state in play command: %s", state)
+        if voice.state in (PlaybackState.DISCONNECTED, PlaybackState.IDLE):
+            should_start_after_queue = True
+            should_connect_or_move = voice.vc is None or voice.vc.channel != voice.user_channel
+        elif voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            if await self.reject_wrong_text_channel(ctx):
                 return
 
+            if voice.vc is None:
+                logger.warning("Playback state was %s but voice client was missing", voice.state)
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+                return
+
+            if voice.user_channel != voice.vc.channel:
+                await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=voice.vc.channel.name)))
+                logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
+                return 
 
         query = " ".join(args)
         track = await self.search_youtube(query)
