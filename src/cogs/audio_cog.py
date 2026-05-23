@@ -919,32 +919,31 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], usage=msg.HELP_USAGES['stop'])
     async def stop(self, ctx):
-        state = self.playback_state()
+        if await self.reject_wrong_text_channel(ctx):
+            return
 
-        if state == PlaybackState.DISCONNECTED:
+        voice = self.get_voice_context(ctx)
+
+        if voice.vc is None:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
             logger.info(msg.LOG_STOP_FAILED_NOT_CONNECTED.format(user=ctx.author.name))
             return
 
-        vc = self.get_vc()
-        assert vc is not None
 
-        user_voice = ctx.author.voice
-        if user_voice is None or user_voice.channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-            logger.info(msg.LOG_STOP_FAILED_USER_ABSENT.format(user=ctx.author.name, channel=vc.channel.name))
+        if voice.user_channel is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+            logger.info(msg.LOG_STOP_FAILED_USER_ABSENT.format(user=ctx.author.name, channel=voice.vc.channel.name))
             return 
         
-        if user_voice.channel != vc.channel:
+        if voice.user_channel != voice.vc.channel:
             await ctx.send(embed=discord.Embed(description=msg.STOP_FAIL_DIFFERENT_CHANNEL))
-            logger.info(msg.LOG_STOP_FAILED_USER_DIFFERENT_CHANNEL.format(user=ctx.author.name, user_vc=user_voice.channel.name, bot_vc=vc.channel.name))
+            logger.info(msg.LOG_STOP_FAILED_DIFFERENT_CHANNEL.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
             return
         
-        self.set_session_text_channel_once(ctx)
         
         await self.cleanup_voice(msg.STOP_BY_USER)
         
-        logger.info(msg.LOG_STOP_EXECUTED.format(channel=vc.channel.name, user=ctx.author.name))
+        logger.info(msg.LOG_STOP_EXECUTED.format(channel=voice.vc.channel.name, user=ctx.author.name))
 
 
     @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], usage=msg.HELP_USAGES['status'])
