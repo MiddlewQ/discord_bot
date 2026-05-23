@@ -281,74 +281,90 @@ class AudioCog(commands.Cog):
         
         if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             logger.debug(msg.LOG_PLAY_NEXT_IGNORE_ALREADY_PLAYING.format(state=state))
-            return 
-
+            return
+        
         await self.play_next_track(ctx=ctx)
-
+        return
+    
     async def play_next_track(self, ctx=None, error=None):
         if error is not None:
             logger.warning(f"Playback ended with error: {error}")
 
+        if self.current_track is not None:
+            self.subtract_track_duration(self.current_track)
+            self.current_track = None
+
         while self.track_queue:
-            queue_item = self.track_queue.pop(0)
-            track = queue_item.track
-            channel = queue_item.channel
-
-            webpage_url = track.get("webpage_url")
-            duration = track.get("duration") or 0
-
-            if not isinstance(webpage_url, str) or not webpage_url:
-                logger.info(f"Skiping queue item with invalid source: {track}")
-
-                if ctx is not None:
-                    await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYBACK))
-
-                continue
-        
-            try:
-                vc = await self.ensure_voice_client(channel)
-
-                data = await self.extract_audio_info(webpage_url)
-
-                stream_url = data.get("url")
-                title= data.get("title") or "Unknown title"
-
-                if not isinstance(stream_url, str) or not stream_url:
-                    raise ValueError(f"No valid stream URL found for {title}")
-
-                self.current_track = queue_item
-                self.queued_duration_seconds = max(0, self.queued_duration_seconds - duration)
-
-                self.cancel_timeout()
-
-                vc.play(
-                    discord.FFmpegPCMAudio(
-                        source=stream_url,
-                        executable="ffmpeg",
-                        options=self.FFMPEG_OPTIONS["options"],
-                        before_options=self.FFMPEG_OPTIONS["before_options"],
-                    ),
-                    after=lambda e: asyncio.run_coroutine_threadsafe(
-                        self.play_next_track(error=e),
-                        self.bot.loop,
-                    )
-                )
-
-                logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=title))
+            vc = self.get_vc()
+            if vc is None:
+                logger.warning("Cannot play next track because the bot is not connected. Clearing playback state.")
+                self._reset_voice_session()
                 return
-            except Exception:
-                logger.exception("Failed to play queue item.")
+            queue_entry = self.track_queue.pop(0)
+            
+            started = await self.try_play_track(vc, queue_entry, ctx)
+            
+            if started:
+                return
+             
+            self.subtract_track_duration(queue_entry)
 
-                if ctx is not None:
-                    await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYBACK))
-        
         self.current_track = None
         self.queued_duration_seconds = 0
+        self.session_text_channel = None
 
-
-        vc = self.get_vc()
-        if vc is not None:
+        if self.get_vc() is not None:
             self.start_timeout(reason=TimeoutReason.IDLE)
+
+    async def try_play_track(self, vc: discord.VoiceClient, queue_entry: QueueEntry, ctx=None) -> bool:
+        track = queue_entry.track
+        
+        webpage_url = track.get("webpage_url")
+
+        if not isinstance(webpage_url, str) or not webpage_url:
+            logger.info(f"Skipping queue item with invalid source: {track}")
+
+            if ctx is not None:
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYBACK))
+            return False
+        
+        try:
+            data = await self.extract_audio_info(webpage_url)
+
+            stream_url = data.get("url")
+            title= data.get("title") or "Unknown title"
+
+            if not isinstance(stream_url, str) or not stream_url:
+                raise ValueError(f"No valid stream URL found for {title}")
+
+            audio_source = discord.FFmpegPCMAudio(
+                source=stream_url,
+                executable="ffmpeg",
+                options=self.FFMPEG_OPTIONS["options"],
+                before_options=self.FFMPEG_OPTIONS["before_options"],
+            )
+
+            vc.play(
+                source=audio_source,
+                after=lambda e: asyncio.run_coroutine_threadsafe(
+                    self.play_next_track(error=e),
+                    self.bot.loop,
+                )
+            )
+
+            self.current_track = queue_entry
+            self.cancel_timeout()
+
+            logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=title))
+            return True        
+
+        except Exception:
+            logger.exception("Failed to play track.")
+
+            if ctx is not None:
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYBACK))
+            
+            return False
 
     async def extract_audio_info(self, webpage_url: str):
         loop = asyncio.get_running_loop()
