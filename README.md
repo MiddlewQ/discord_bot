@@ -1,60 +1,117 @@
-# Discord Muisc Bot
+# Discord Music Bot
 
-This is my discord music bot that uses the discord python library. 
+A personal Discord music bot built with `discord.py`, `yt-dlp`, and FFmpeg.
 
-Further building on this project https://github.com/pawel02/music_bot/
+The bot can search YouTube, stream audio to a Discord voice channel, manage a queue, and control playback through text commands. It is designed to run continuously on Linux, preferably on a Raspberry Pi or similar small server.
+
+This project was originally based on [pawel02/music_bot](https://github.com/pawel02/music_bot/), but has since been heavily reworked.
 
 ## Features
-* Search YouTube videos for tracks to play in Discord
-* Plays tracks in voice channel
-* Help class for information
-* Queue & Help Pagination
-* Embed output to text channel
-* Preparation to run with Dockerfile
-* Logging in logs/ directory
 
-### Commands
-Outputs are printed as embeds (similar to other more popular music bots)
+- Search YouTube and queue tracks
+- Play audio in a Discord voice channel
+- Queue multiple tracks with `multiplay`
+- Pause, resume, skip, remove, clear, and stop playback
+- View the current queue and currently playing track
+- Paginated queue and help embeds
+- Text-channel session locking while playback is active
+- Automatic timeout handling for idle, paused, and empty voice channels
+- Logging to the `logs/` directory
+- Docker and Docker Compose support
+- `uv` support for local development/debugging
 
-1. Help
-2. Join
-3. Play
-4. Multiplay
-5. Pause/Resume
-6. Queue
-7. Remove 
-8. Clear
-9. Stop
-10. Playing
-11. Status
+## Commands
 
-## How to run
+All command responses are sent as Discord embeds.
 
-Edit the `.env` file with your Discord token and preferred command prefix (for example `!<command>`).
+| Command | Description |
+|---|---|
+| `help` | Show available commands |
+| `join` | Connect the bot to your voice channel |
+| `play` | Search for and play/queue a track |
+| `multiplay` | Queue multiple tracks separated by `\|` |
+| `pause` | Pause current playback |
+| `resume` | Resume paused playback |
+| `skip` | Skip the current track |
+| `queue` | Show the current queue |
+| `playing` | Show the currently playing track |
+| `remove` | Remove a queued track |
+| `clear` | Clear the queue/current playback |
+| `stop` | Disconnect the bot |
+| `status` | Show internal playback status |
 
-### Docker
+## Runtime recommendation
 
-This bot can be run in most Linux environments, but Docker is the easiest way to avoid dependency issues.
+This bot is intended to run on Linux.
 
-Build the image, then run it:
+Running it on Windows is not recommended. It may work, but it is not the target environment and has not been tested properly.
 
-```sh
-docker build -t discord_bot .
+For best results, run it on a Raspberry Pi or another always-on Linux machine. Running the bot from a regular desktop PC can work, but audio playback may lag more compared to running it on a dedicated device like a Raspberry Pi.
 
-# run (uses .env)
-docker run -d --name discord_bot --env-file .env discord_bot:latest
+## Setup
 
-# follow logs
-docker logs -f discord_bot
+Create a `.env` file with your Discord bot token and command prefix.
+
+Example:
+
+```env
+DISCORD_TOKEN=your_token_here
+COMMAND_PREFIX=!
 ```
-Logs are also saved to files in `logs/` in the container.
+## Running with Docker Compose
 
-#### (Optional) Persist logs to your host machine:
+Docker Compose is the recommended way to run the bot.
 
-```sh
-mkdir -p logs
-docker run -d --name discord_bot --env-file .env \
-  -v "$PWD/logs:/usr/src/app/logs" \
-  discord_bot:latest
-```
+Build and start:
 
+    docker compose up -d --build
+
+Follow logs:
+
+    docker compose logs -f
+
+Stop the bot:
+
+    docker compose down
+
+Logs are saved in the `logs/` directory.
+
+## Running with Docker manually
+
+Build the image:
+
+    docker build -t discord_bot .
+
+Run the container:
+
+    docker run -d --name discord_bot --env-file .env discord_bot:latest
+
+Follow logs:
+
+    docker logs -f discord_bot
+
+To persist logs on the host machine:
+
+    mkdir -p logs
+
+    docker run -d --name discord_bot --env-file .env \\
+      -v "$PWD/logs:/usr/src/app/logs" \\
+      discord_bot:latest
+
+## Local development with uv
+
+`uv` can be used for local development and debugging without Docker.
+
+Install dependencies:
+
+    uv sync
+
+Run the bot:
+
+    uv run python -m src.main
+
+Docker is still recommended for deployment, since it avoids most dependency and environment issues.
+
+## Notes
+
+The bot uses `yt-dlp` for YouTube extraction and FFmpeg for audio streaming. Make sure both is available in the environment when running without Docker.
