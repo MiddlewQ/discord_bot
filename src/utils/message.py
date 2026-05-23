@@ -173,7 +173,7 @@ LOG_STOP_FAILED_USER_ABSENT             = "Stop command failed: User '{user}' at
 LOG_STOP_FAILED_DIFFERENT_CHANNEL       = "Stop command failed: User '{user}' attempted to stop playback in channel {user_vc} but the bot is in {bot_vc}." 
 
 # Skip Log
-LOG_TRACK_SKIPPED                       = "Skip command executed: Track '{title}' was skipped by user '{user}' in guild '{guild}'."
+LOG_TRACK_SKIPPED                       = "Skip command executed: Track '{title}' was skipped by user '{user}'."
 LOG_SKIP_FAILED_BOT_ABSENT              = "Skip command failed: User '{user}' attempted to skip track but the bot is not connected to a channel."
 LOG_SKIP_FAILED_USER_ABSENT             = "Skip command failed: User '{user}' attempted to skip track but the user is not connected to the voice channel '{channel}'."
 LOG_SKIP_FAILED_DIFFERENT_CHANNEL       = "Skip command failed: User '{user}' attempted to skip from voice channel '{user_vc}', but the bot is in '{bot_vc}'."

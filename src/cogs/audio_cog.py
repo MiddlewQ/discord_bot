@@ -733,16 +733,10 @@ class AudioCog(commands.Cog):
         title = track.get("title") or "Unknown title"
         webpage_url = track.get("webpage_url") or ""
         
-        vc.stop()
-        await ctx.send(embed=discord.Embed(description=msg.SKIP_TRACK.format(title=title, webpage_url=webpage_url)))            
+        voice.vc.stop()
 
-        logger.info(
-            msg.LOG_TRACK_SKIPPED.format(
-                title=title, 
-                user=user, 
-                guild=ctx.guild.name
-            )
-        )
+        await ctx.send(embed=discord.Embed(description=msg.SKIP_TRACK.format(title=title, webpage_url=webpage_url)))            
+        logger.info(msg.LOG_TRACK_SKIPPED.format(title=title, user=user.name))
 
 
     @commands.command(name="queue", aliases=["q"], help=msg.HELP_MESSAGES['queue'], usage=msg.HELP_USAGES['queue'])
