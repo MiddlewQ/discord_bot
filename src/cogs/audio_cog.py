@@ -29,6 +29,12 @@ class TimeoutReason(StrEnum):
     PAUSED = auto()
 
 @dataclass(frozen=True)
+class VoiceContext:
+    state: PlaybackState
+    vc: discord.VoiceClient | None
+    user_channel: discord.VoiceChannel | discord.StageChannel | None
+
+@dataclass(frozen=True)
 class TimeoutPolicy:
     seconds: int
     discord_message: str
@@ -109,11 +115,79 @@ class AudioCog(commands.Cog):
         
         return vc
 
-    def set_session_text_channel_once(self, ctx):
+    async def prepare_voice_for_playback(self, ctx, channel) -> bool:
+        try:
+            await self.ensure_voice_client(channel)
+        except Exception:
+            logger.exception("Failed to connect or move to voice channel.")
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_CONNECT_TO_VOICE_CHANNEL))
+            return False
+        return True
+
+    async def reject_wrong_text_channel(self, ctx) -> bool:
+        if self.playback_state() not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            return False
+        
         if self.session_text_channel is None:
+            logger.warning("Playback active without a session text channel. Locking to current channel.")
             self.session_text_channel = ctx.channel
+            return False
+        
+        if ctx.channel == self.session_text_channel:
+            return False
+        
+        logger.info(msg.LOG_COMMAND_FAILED_DIFFERENT_TEXT_CHANNEL.format(
+            user=ctx.author.name,
+            command=ctx.command.name if ctx.command else "unknown",
+            current_channel=ctx.channel.name,
+            session_channel=self.session_text_channel.name,
+        ))
+        return True
 
+    def get_voice_context(self, ctx) -> VoiceContext:
+        state = self.playback_state()
+        vc = self.get_vc()
 
+        user_voice = ctx.author.voice
+        user_channel: discord.VoiceChannel | discord.StageChannel | None = user_voice.channel if user_voice and user_voice.channel else None
+
+        return VoiceContext(
+            state=state,
+            vc=vc,
+            user_channel=user_channel,
+        )
+
+    def _clear_playback_state(self):
+        self.track_queue.clear()
+        self.current_track = None
+        self.queued_duration_seconds = 0
+
+    def _reset_voice_session(self):
+        self.cancel_timeout()
+        self._clear_playback_state()
+        self.vc = None
+        self.session_text_channel = None
+
+    def subtract_track_duration(self, queue_entry: QueueEntry):
+        duration = queue_entry.track.get("duration") or 0
+        self.queued_duration_seconds = max(0, self.queued_duration_seconds - duration)
+
+    async def cleanup_voice(self, message: str):
+        text_channel = self.session_text_channel
+        vc = self.get_vc()
+
+        # Mark internal state as gone before Discord fires voice-state events.
+        self._reset_voice_session()
+
+        if vc is not None:
+            await vc.disconnect()
+
+        logger.info(f"Disconnected from voice.")
+
+        if text_channel is not None:
+            await text_channel.send(embed=discord.Embed(description=message))
+
+        
     # 3. Embed / yt-dlp helders
     def build_queued_track_embed(self, track, requester):
         embed = discord.Embed(
