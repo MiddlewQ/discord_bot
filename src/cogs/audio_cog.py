@@ -414,27 +414,6 @@ class AudioCog(commands.Cog):
         except asyncio.CancelledError:
             pass
 
-    async def cleanup_voice(self, message: str):
-        self.cancel_timeout()
-
-        vc = self.get_vc()
-        if vc is not None:
-            await vc.disconnect()
-        
-        self.track_queue.clear()
-        self.current_track = None
-        self.queued_duration_seconds = 0
-        self.vc = None
-
-        logger.info(f"Disconnected from voice.")
-
-        if self.session_text_channel is not None:
-            await self.session_text_channel.send(
-                embed=discord.Embed(
-                    description=message
-                )
-        )
-        self.session_text_channel = None 
 
     # 6. Listeners
     @commands.Cog.listener()
