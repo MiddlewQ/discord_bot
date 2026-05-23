@@ -807,8 +807,13 @@ class AudioCog(commands.Cog):
         track = self.current_track.track
         title = track.get("title") or "Unknown title"
         webpage_url = track.get("webpage_url") or "Unknown url"
-        
-        await ctx.send(embed=discord.Embed(description=msg.PLAYING.format(title=title, webpage_url=webpage_url)))
+        thumbnail = track.get("thumbnail") 
+        embed = discord.Embed(description=msg.PLAYING.format(title=title, webpage_url=webpage_url))
+        if thumbnail:
+            embed.set_thumbnail(url=thumbnail)
+
+        await ctx.send(embed=embed)
+
         return
         
 
