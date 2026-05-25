@@ -2,6 +2,7 @@ import discord
 import asyncio
 from discord.ext import commands
 from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError, ExtractorError
 from enum import StrEnum, auto
 from dataclasses import dataclass
 
@@ -516,7 +517,7 @@ class AudioCog(commands.Cog):
             if voice.user_channel == voice.vc.channel:
                 if voice.state == PlaybackState.IDLE:
                     self.start_timeout(TimeoutReason.IDLE)
-                await ctx.send(embed=discord.Embed(description=msg.JOIN_FAIL_PLAYING_SAME_CHANNEL))
+                await ctx.send(embed=discord.Embed(description=msg.JOIN_FAIL_SAME_CHANNEL))
                 logger.info(msg.LOG_JOIN_FAILED_USER_CHANNEL_SAME.format(user=user.name, channel=voice.vc.channel.name))
                 return
             if voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):

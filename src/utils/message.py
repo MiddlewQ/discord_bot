@@ -34,14 +34,14 @@ BOT_CHANNEL_CONNECTED               = ":gear: Connected to {channel}."
 BOT_CHANNEL_MOVED                   = ":gear: Moved to {channel}."
 FAIL_BOT_NOT_CONNECTED              = ":gear: I am not connected to a voice channel."
 FAIL_BOT_ALREADY_CONNECTED          = ":gear: I am already connected to {channel}."
-FAIL_USER_NOT_CONNECTED             = ":gear: You need to be connected to a voice channel."
+FAIL_USER_NOT_CONNECTED             = ":gear: You need to be connected to my voice channel."
 FAIL_BOT_CONNECT_TO_VOICE_CHANNEL   = ":gear: Could not connect to voice channel."
 FAIL_DIFFERENT_CHANNEL              = ":gear: You cannot be connected to different channel."
 
 
 # Join - Empty so far
-JOIN_FAIL_PLAYING_SAME_CHANNEL      = ":gear: I am already playing audio in this voice channel."
-JOIN_FAIL_PLAYING_OTHER_CHANNEL     = ":gear: I am playing audio in another voice channel."
+JOIN_FAIL_SAME_CHANNEL              = ":gear: I am already in this voice channel."
+JOIN_FAIL_PLAYING_OTHER_CHANNEL     = ":gear: I am already playing music in another channel."
 
 # Play / Playing / Multiplay
 START_PLAYBACK                      = ":gear: **Starting:** [{title}]({webpage_url})..."
@@ -84,7 +84,7 @@ FAIL_INVALID_INDEX              = ":gear: Invalid position in queue."
 
 # Stop
 STOP_BY_USER                    = ":gear: Stopped by user."
-STOP_FAIL_DIFFERENT_CHANNEL     = ":gear: You need to be in my current voice channel top stop playback."
+STOP_FAIL_DIFFERENT_CHANNEL     = ":gear: You need to be in the same voice chat as me to stop me."
 
 # Timeout
 TIMEOUT_NO_HUMANS               = ":gear: Leaving voice because there are no humans left in the channel."
