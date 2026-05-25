@@ -6,13 +6,19 @@ logger = logging.getLogger("bot")
 
 class HelpCog(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: commands.Bot = bot
         self.text_channel_list = []
         self.command_order = ['join', 'play', 'playing', 'multiplay', 'queue', 'pause', 'resume', 'skip', 'help', 'remove', 'clear', 'stop'] # used for ordering the help command
 
     @commands.Cog.listener()
     async def on_ready(self):
-        logger.info(f'User {self.bot.user} (ID: {self.bot.user.id})')
+        bot_user = self.bot.user
+
+        if bot_user is None:
+            logger.warning("Bot is ready but self.bot.user is None.")
+            return
+                
+        logger.info(f'User {self.bot.user} (ID: {bot_user.id})')
         
         
     async def show_command_help(self, ctx, command):

@@ -62,7 +62,7 @@ class AudioCog(commands.Cog):
 
     # 1. Setup & configuration
     def __init__(self, bot: commands.Bot):
-        self.bot = bot
+        self.bot: commands.Bot = bot
         
         self.current_track: QueueEntry | None = None
         self.track_queue: list[QueueEntry] = []
