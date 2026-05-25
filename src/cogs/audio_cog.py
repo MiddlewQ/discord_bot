@@ -83,7 +83,7 @@ class AudioCog(commands.Cog):
             return False
         return True
 
-    async def reject_wrong_text_channel(self, ctx) -> bool:
+    async def reject_invalid_text_channel(self, ctx) -> bool:
         if self.playback_state() not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             return False
         
@@ -539,7 +539,7 @@ class AudioCog(commands.Cog):
     # 7. Commands
     @commands.command(name="join", aliases=['connect'], help=msg.HELP_MESSAGES['join'], usage=msg.HELP_USAGES['join'])
     async def join(self, ctx):
-        if await self.reject_wrong_text_channel(ctx):
+        if await self.reject_invalid_text_channel(ctx):
             return
         
         voice = self.get_voice_context(ctx)
@@ -608,7 +608,7 @@ class AudioCog(commands.Cog):
             should_start_after_queue = True
             should_connect_or_move = voice.vc is None or voice.vc.channel != voice.user_channel
         elif voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            if await self.reject_wrong_text_channel(ctx):
+            if await self.reject_invalid_text_channel(ctx):
                 return
 
             if voice.vc is None:
@@ -648,7 +648,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
     async def multiplay(self, ctx, *args):
-        if await self.reject_wrong_text_channel(ctx):
+        if await self.reject_invalid_text_channel(ctx):
             return
 
         if not args:
@@ -731,7 +731,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="pause", help=msg.HELP_MESSAGES["pause"], usage=msg.HELP_USAGES["pause"])
     async def pause(self, ctx):
-        if await self.reject_wrong_text_channel(ctx):
+        if await self.reject_invalid_text_channel(ctx):
             return
 
         voice = self.get_voice_context(ctx)
@@ -760,7 +760,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
     async def resume(self, ctx):
-        if await self.reject_wrong_text_channel(ctx):
+        if await self.reject_invalid_text_channel(ctx):
             return
 
         voice = self.get_voice_context(ctx)
@@ -788,7 +788,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="skip", aliases=["s"], help=msg.HELP_MESSAGES['skip'], usage=msg.HELP_USAGES['skip'])
     async def skip(self, ctx):
-        if await self.reject_wrong_text_channel(ctx):
+        if await self.reject_invalid_text_channel(ctx):
             return
 
         user = ctx.author
@@ -942,7 +942,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="clear", aliases=["c", "bin"], help=msg.HELP_MESSAGES['clear'], usage=msg.HELP_USAGES['clear'])
     async def clear(self, ctx):
-        if await self.reject_wrong_text_channel(ctx):
+        if await self.reject_invalid_text_channel(ctx):
             return
 
         voice = self.get_voice_context(ctx)
@@ -971,7 +971,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], usage=msg.HELP_USAGES['stop'])
     async def stop(self, ctx):
-        if await self.reject_wrong_text_channel(ctx):
+        if await self.reject_invalid_text_channel(ctx):
             return
 
         voice = self.get_voice_context(ctx)
