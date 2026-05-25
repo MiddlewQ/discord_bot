@@ -103,6 +103,55 @@ class AudioCog(commands.Cog):
         ))
         return True
 
+    def check_voice_channel(self, voice: VoiceContext) -> VoiceChannelReject | None:
+        if voice.vc is None:
+            return VoiceChannelReject.BOT_NOT_CONNECTED
+
+        if voice.user_channel is None:
+            return VoiceChannelReject.USER_NOT_CONNECTED
+
+        if voice.user_channel != voice.vc.channel:
+            return VoiceChannelReject.DIFFERENT_VOICE_CHANNEL
+
+        return None
+
+    async def reject_invalid_voice_channel(self, ctx, voice: VoiceContext) -> bool:
+        error = self.check_voice_channel(voice)
+
+        if error is None:
+            return False
+
+        match error:
+            case VoiceChannelReject.BOT_NOT_CONNECTED:
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+                logger.info(msg.LOG_COMMAND_FAILED_BOT_ABSENT.format(
+                    user=ctx.author.name, 
+                    command=ctx.command.name if ctx.command else "unknown",
+                ))
+
+            case VoiceChannelReject.USER_NOT_CONNECTED:
+                channel = voice.vc.channel.name if voice.vc is not None else "unknown"
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+                logger.info(msg.LOG_COMMAND_FAILED_USER_ABSENT.format(
+                    user=ctx.author.name, 
+                    command=ctx.command.name if ctx.command else "unknown", 
+                    channel=channel,
+                ))
+
+            case VoiceChannelReject.DIFFERENT_VOICE_CHANNEL:
+                user_vc = voice.user_channel.name if voice.user_channel else "unknown"
+                bot_vc = voice.vc.channel.name if voice.vc is not None else "unknown"
+
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
+                logger.info(msg.LOG_COMMAND_FAILED_DIFFERENT_VOICE_CHANNEL.format(
+                    user=ctx.author.name, 
+                    command=ctx.command.name if ctx.command else "unknown", 
+                    user_vc=user_vc, 
+                    bot_vc=bot_vc,
+                ))
+        
+        return True   
+
     def get_voice_context(self, ctx) -> VoiceContext:
         state = self.playback_state()
         vc = self.get_vc()
@@ -688,21 +737,9 @@ class AudioCog(commands.Cog):
         voice = self.get_voice_context(ctx)
         user = ctx.author
 
-        if voice.vc is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-            logger.info(msg.LOG_PAUSE_FAILED_BOT_ABSENT.format(user=user.name))
-            return 
-        
-        if voice.user_channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-            logger.info(msg.LOG_PAUSE_FAILED_USER_ABSENT.format(user=user.name, channel=voice.vc.channel.name))
-            return 
-
-        if voice.user_channel != voice.vc.channel:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
-            logger.info(msg.LOG_PAUSE_FAILED_DIFFERENT_CHANNEL.format(user=user.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
-            return 
-
+        if await self.reject_invalid_voice_channel(ctx, voice):
+            return
+            
         if voice.state == PlaybackState.IDLE:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PLAYING))
             logger.info(msg.LOG_PAUSE_FAILED_NOT_PLAYING.format(user=user.name))
@@ -713,6 +750,7 @@ class AudioCog(commands.Cog):
             logger.info(msg.LOG_PAUSE_FAILED_ALREADY_PAUSED.format(user=user.name)) 
             return 
         
+        assert voice.vc is not None
         voice.vc.pause()
 
         await ctx.send(embed=discord.Embed(description=msg.PAUSED))
@@ -725,24 +763,11 @@ class AudioCog(commands.Cog):
         if await self.reject_wrong_text_channel(ctx):
             return
 
-        user = ctx.author
-
         voice = self.get_voice_context(ctx)
 
-        if voice.vc is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-            logger.info(msg.LOG_RESUME_FAILED_BOT_ABSENT.format(user=user.name))
-            return 
-        
-        if voice.user_channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-            logger.info(msg.LOG_RESUME_FAILED_USER_ABSENT.format(user=user.name, channel=voice.vc.channel.name))
-            return 
-
-        if voice.user_channel != voice.vc.channel:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
-            logger.info(msg.LOG_RESUME_FAILED_DIFFERENT_CHANNEL.format(user=user.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
-            return 
+        if await self.reject_invalid_voice_channel(ctx, voice):
+            return
+        assert voice.vc is not None
 
         if voice.state == PlaybackState.PLAYING:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_ALREADY_PLAYING))
@@ -753,7 +778,7 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PAUSED))
             logger.info(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=ctx.author.name))
             return 
-        
+
         voice.vc.resume()
         self.cancel_timeout()
 
@@ -769,21 +794,9 @@ class AudioCog(commands.Cog):
         user = ctx.author
         voice = self.get_voice_context(ctx)
 
-        if voice.vc is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-            logger.info(msg.LOG_SKIP_FAILED_BOT_ABSENT.format(user=user.name))
-            return 
-        
-
-        if voice.user_channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-            logger.info(msg.LOG_SKIP_FAILED_USER_ABSENT.format(user=user.name, channel=voice.vc.channel.name))
-            return 
-
-        if voice.user_channel != voice.vc.channel:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
-            logger.info(msg.LOG_SKIP_FAILED_DIFFERENT_CHANNEL.format(user=user.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
-            return 
+        if await self.reject_invalid_voice_channel(ctx, voice):
+            return
+        assert voice.vc is not None
 
         if voice.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or self.current_track is None:
             logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user.name, channel=voice.vc.channel.name))
@@ -880,29 +893,17 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="remove", aliases=["rm"], help=msg.HELP_MESSAGES['remove'], usage=msg.HELP_USAGES['remove'])
     async def remove(self, ctx, *args):
-        if await self.reject_wrong_text_channel(ctx):
+        if await self.reject_invalid_text_channel(ctx):
+            return        
+        
+        voice = self.get_voice_context(ctx)
+
+        if await self.reject_invalid_voice_channel(ctx, voice):
             return
 
         if not self.track_queue:
             logger.info(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_QUEUE_EMPTY))
-            return
-        
-        
-        voice = self.get_voice_context(ctx)
-        if voice.vc is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-            logger.info(msg.LOG_REMOVE_FAILED_BOT_ABSENT.format(user=ctx.author.name))
-            return
-
-        if voice.user_channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-            logger.info(msg.LOG_REMOVE_FAILED_USER_ABSENT.format(user=ctx.author.name, channel=voice.vc.channel.name,))
-            return
-
-        if voice.user_channel != voice.vc.channel:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
-            logger.info(msg.LOG_REMOVE_FAILED_DIFFERENT_CHANNEL.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name,)) 
             return
 
         if args:
@@ -946,27 +947,14 @@ class AudioCog(commands.Cog):
 
         voice = self.get_voice_context(ctx)
 
+        if await self.reject_invalid_voice_channel(ctx, voice):
+            return
+        assert voice.vc is not None
+
         if self.current_track is None and not self.track_queue:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
             logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
-
-        if voice.vc is None:
-            # If disconnected but stale queue exists, clearing ok
-            self._clear_playback_state()
-            await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
-            logger.info(msg.LOG_CLEAR_EXECUTED.format(user=ctx.author.name))
-            return
-        
-        if voice.user_channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-            logger.info(msg.LOG_CLEAR_FAILED_USER_ABSENT.format(user=ctx.author.name, channel=voice.vc.channel.name))
-            return
-
-        if voice.user_channel != voice.vc.channel:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
-            logger.info(msg.LOG_CLEAR_FAILED_DIFFERENT_CHANNEL.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
-            return 
         
         self._clear_playback_state()
         self.session_text_channel = None
@@ -988,23 +976,10 @@ class AudioCog(commands.Cog):
 
         voice = self.get_voice_context(ctx)
 
-        if voice.vc is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-            logger.info(msg.LOG_STOP_FAILED_NOT_CONNECTED.format(user=ctx.author.name))
+        if await self.reject_invalid_voice_channel(ctx, voice):
             return
+        assert voice.vc is not None
 
-
-        if voice.user_channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-            logger.info(msg.LOG_STOP_FAILED_USER_ABSENT.format(user=ctx.author.name, channel=voice.vc.channel.name))
-            return 
-        
-        if voice.user_channel != voice.vc.channel:
-            await ctx.send(embed=discord.Embed(description=msg.STOP_FAIL_DIFFERENT_CHANNEL))
-            logger.info(msg.LOG_STOP_FAILED_DIFFERENT_CHANNEL.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
-            return
-        
-        
         await self.cleanup_voice(msg.STOP_BY_USER)
         
         logger.info(msg.LOG_STOP_EXECUTED.format(channel=voice.vc.channel.name, user=ctx.author.name))

@@ -110,6 +110,11 @@ DISCONNECTED_FROM_VOICE             = ":gear: I was disconnected from voice. Que
 LOG_HELP_EXECUTED                   = "Help command executed: User '{user}' ran the help command for {command}."
 LOG_HELP_FAILED_INVALID_CMD         = "Help command failed: User '{user}' attempted to run help for an invalid command '{command}'."
 
+# General
+LOG_COMMAND_FAILED_BOT_ABSENT       = "Command failed: User '{user}' attempted to run '{command}', but the bot is not connected to a voice channel."
+LOG_COMMAND_FAILED_USER_ABSENT      = "Command failed: User '{user}' attempted to run '{command}' while not connected to '{channel}'."
+LOG_COMMAND_FAILED_DIFFERENT_VOICE_CHANNEL = "Command failed: User '{user}' attempted to run '{command}' from '{user_vc}', but the bot is in '{bot_vc}'."
+
 # Join
 LOG_JOIN_CHANNEL_CONNECT            = "Join command executed: User '{user}' connected to new voice channel '{channel}'."
 LOG_JOIN_CHANNEL_MOVE               = "Join command executed: User '{user}' moved voice channel from '{old}' to '{new}'."
