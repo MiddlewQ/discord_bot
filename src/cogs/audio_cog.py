@@ -23,11 +23,6 @@ class PlaybackState(StrEnum):
     PLAYING = auto()
     PAUSED = auto()
 
-class TimeoutReason(StrEnum):
-    NO_HUMANS = auto()
-    IDLE = auto()
-    PAUSED = auto()
-
 @dataclass(frozen=True)
 class VoiceContext:
     state: PlaybackState
@@ -39,6 +34,12 @@ class TimeoutPolicy:
     seconds: int
     discord_message: str
     log_message: str
+
+class TimeoutReason(StrEnum):
+    NO_HUMANS = auto()
+    IDLE = auto()
+    PAUSED = auto()
+
 
 TIMEOUT_POLICIES = {
     TimeoutReason.NO_HUMANS: TimeoutPolicy(
@@ -763,7 +764,6 @@ class AudioCog(commands.Cog):
         logger.info(msg.LOG_PAUSE_EXECUTED.format(user=user.name))
         self.start_timeout(TimeoutReason.PAUSED)
 
-        
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
     async def resume(self, ctx):
