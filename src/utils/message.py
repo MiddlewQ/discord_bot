@@ -31,7 +31,6 @@ HELP_USAGES = {
     "status": "!status, !stat",
 }
 
-
 # Discord messages
 # -----------------------------------------------------------------------------------------------------------------
 
@@ -106,6 +105,10 @@ DISCONNECTED_FROM_VOICE             = ":gear: I was disconnected from voice. Que
 
 # Logger messages
 # -----------------------------------------------------------------------------------------------------------------
+
+# Help
+LOG_HELP_EXECUTED                   = "Help command executed: User '{user}' ran the help command for {command}."
+LOG_HELP_FAILED_INVALID_CMD         = "Help command failed: User '{user}' attempted to run help for an invalid command '{command}'."
 
 # Join
 LOG_JOIN_CHANNEL_CONNECT            = "Join command executed: User '{user}' connected to new voice channel '{channel}'."
@@ -197,3 +200,4 @@ LOG_TIMEOUT_IDLE                    = "Timeout executed: Leaving voice channel '
 
 # Pagination 
 LOG_PAGINATOR_EXECUTED              = "Pagination view executed: Page {page}."
+

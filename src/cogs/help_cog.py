@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 from src.utils.partionation import PaginationView
 from src.utils.logging_config import logging
+import src.utils.message as msg
+
 logger = logging.getLogger("bot")
 
 class HelpCog(commands.Cog):
@@ -21,31 +23,34 @@ class HelpCog(commands.Cog):
         logger.info(f'User {self.bot.user} (ID: {bot_user.id})')
         
         
-    async def show_command_help(self, ctx, command):
+    async def show_command_help(self, ctx, command: str):
         cmd = self.bot.get_command(command)
-        if cmd:
-            embed = discord.Embed(
-                title=f"⚙️ {cmd.name.capitalize()}",
-                description=cmd.help,
-                color=discord.Color.blue()
-            )
-            embed.add_field(name="Usage", value=cmd.extras, inline=True)
-            embed.add_field(name="Shortcut", value=", ".join(cmd.aliases) if cmd.aliases else "", inline=True)
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send(embed=discord.Embed(
-                title="⚙️ Error", 
-                description="Command not found.", 
-                color=discord.Color.blue()
-            ))
+        
+        if not cmd:
+            await ctx.send(embed=discord.Embed(title=":gear: Error", description="Command not found.", color=discord.Color.blue()))
+            logger.info(msg.LOG_HELP_FAILED_INVALID_CMD.format(user=ctx.author.name, command=command))
+            return
+
+        logger.info(f"Showing help message for command {cmd}")
+        embed = discord.Embed(
+            title=f"⚙️ {cmd.name.capitalize()}",
+            description=cmd.help,
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Usage", value=cmd.usage, inline=True)
+        embed.add_field(name="Shortcut", value=", ".join(cmd.aliases) if cmd.aliases else "", inline=True)
+        await ctx.send(embed=embed)
 
     @commands.command(name="ping")
     async def test_response_to_bot(self, ctx):
         await ctx.send("pong")
-
     
     @commands.command(name="help", aliases=["h"], help="Displays help message for all commands or a specific command.", usage="!help, !help <command>")
     async def help(self, ctx, *, command:str | None = None):
+        if command:
+            await self.show_command_help(ctx, command=command)
+            return
+        
         data = {"fields": []}
 
         for command_name in self.command_order:
