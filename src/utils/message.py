@@ -56,8 +56,16 @@ MULTIPLAY_START_PLAYBACK            = ":gear: Added {number} tracks. Starting pl
 MULTIPLAY_MAX_TRACKS                = ":gear: Max {number} tracks can be added simultaneously. Adding {number} first."
 MULTIPLAY_QUEUE_TRACKS              = ":gear: Added {number} tracks to the queue."
 
+
+
 # Search YouTube & FFMPEG
-FAIL_INCORRECT_FORMAT           = ":gear: Could not download the track. Incorrect format try another keyword. This could be due to playlist or a livestream format."
+PLAY_FAIL_VIDEO_NOT_FOUND      = ":gear: Could not find any video."
+PLAY_FAIL_VIDEO_UNAVAILABLE    = ":gear: That YouTube video is unavailable, private, age-restricted, or region-blocked."
+PLAY_FAIL_YTDLP_RUNTIME        = ":gear: The bot cannot currently read some YouTube videos because YouTube extraction is not fully configured."
+PLAY_FAIL_VIDEO_AGE_RESTRICTED = ":gear: That YouTube video is age-restricted and cannot be played without authentication (currently unsupported)."
+
+PLAY_FAIL_YTDLP_ERROR          = ":gear: Could not read this YouTube video right now."
+
 
 # Pause / Resume / Playing
 PAUSED                          = ":gear: Paused."
@@ -94,12 +102,8 @@ TIMEOUT_IDLE                    = ":gear: Leaving voice because nothing has been
 # Text Channel
 FAIL_DIFFERENT_TEXT_CHANNEL     = ":gear: "
 
-
-
 # External issues
 DISCONNECTED_FROM_VOICE         = ":gear: I was disconnected from voice. Queue cleared."
-
-
 
 # Logger
 # -----------------------------------------------------------------------------------------------------------------
@@ -111,13 +115,24 @@ LOG_JOIN_FAILED_USER_ABSENT             = "Join command failed: User '{user}' is
 LOG_JOIN_FAILED_USER_CHANNEL_SAME       = "Join command failed: User '{user}' tried to switch to same channel."
 LOG_JOIN_FAILED_PLAYBACK_OTHER          = "Join command failed: User '{user}' tried to connect while the bot is already playing tracks in another channel."
 
-# Play & FFMPEG/yt-dlp command logs    
+# yt-dlp search
+LOG_YTDLP_FAILED_UNAVAILABLE            = "yt-dlp search failed: Video unavailable for query '{query}'. Error: {error}"
+LOG_YTDLP_FAILED_RUNTIME                = "yt-dlp search failed: Missing or unsupported JavaScript runtime for query '{query}'. Error: {error}"
+LOG_YTDLP_FAILED_EXTRACTION             = "yt-dlp search failed: Could not extract info for query '{query}'. Error: {error}"
+LOG_YTDLP_FAILED_AGE_RESTRICTION       = "yt-dlp search failed: Age-restricted video for '{query}'. Error: {error}"    
+LOG_YTDLP_FAILED_UNEXPECTED             = "yt-dlp search failed: Unexpected error while searching for query '{query}'."
+OG_YTDLP_RESULT_INVALID                 = "yt-dlp search failed: Invalid result type for query '{query}'. Result type: {result_type}"
+LOG_YTDLP_RESULT_EMPTY                  = "yt-dlp search failed: No entries found for query '{query}'."
+LOG_YTDLP_ENTRY_INVALID                 = "yt-dlp search failed: Invalid entry type for query '{query}'. Entry type: {entry_type}"
+LOG_YTDLP_ENTRY_MISSING_URL             = "yt-dlp search failed: Entry missing webpage URL for query '{query}'."
+LOG_YTDLP_RESULT_INVALID                = "yt-dlp search failed: Invalid result type for query '{query}'. Result type: {result_type}"
+
+# Play     
 LOG_PLAYBACK_STARTED                    = "Play command executed: Now playing '{title}'."
 LOG_PLAY_TRACK_QUEUED                   = "Play command executed: Track '{title}' added to queue. Webpage URL: {webpage_url}."
 LOG_PLAY_FAILED_USER_NOT_CONNECTED      = "Play command failed: User '{user}' not connected to a voice channel."
 LOG_PLAY_FAILED_USER_CHANNEL_SAME       = "Play command failed: User '{user}' tried to switch channel while in the same channel {channel} as bot."
 LOG_PLAY_FAILED_USER_CHANNEL_OTHER      = "Play command failed: User '{user}' tried to add track in {user_vc} while the bot is already playing tracks in another channel {bot_vc}."
-    
 LOG_PLAY_FAILED_NO_ARGS                 = "Play command failed: No arguments provided by '{user}'."
 LOG_PLAY_FAILED_NOT_FOUND               = "Play command failed: No track found for query '{query}' by '{user}'."
 LOG_PLAY_FAILED_TOO_LONG                = "Play command failed: Track requested by {user} is too long"
@@ -148,9 +163,6 @@ LOG_RESUME_FAILED_NOT_PAUSED            = "Resume command failed: User '{user}' 
 LOG_QUEUE_EMPTY                         = "Queue command response empty in {channel}."
 LOG_QUEUE_DISPLAYED                     = "Queue command response showing {number_of_tracks} tracks in '{channel}'."
 LOG_QUEUE_FAIL_BOT_ABSENT               = "Queue command failed: User '{user}' attempted to queue songs but the bot is not connected to a channel."
-# LOG_QUEUE_FAIL_USER_ABSENT              = "Queue command failed: User '{user}' attempted to queue songs while not connected to {channel}."
-# LOG_QUEUE_FAIL_DIFFERENT
-
 
 # Clear command logs
 LOG_CLEAR_EXECUTED                      = "Clear command executed: Track queue cleared by '{user}'."
@@ -161,7 +173,6 @@ LOG_CLEAR_FAILED_DIFFERENT_CHANNEL      = "Clear command executed: User '{user}'
 # Remove command logs
 LOG_REMOVE_EXECUTED                     = "Track at index {index} removed by '{user}'."
 LOG_REMOVE_LAST_EXECUTED                = "Removed last track at index {index} by '{user}'"
-
 LOG_REMOVE_FAILED_BOT_ABSENT            = "Remove command failed: User '{user}' attempted to remove song but the bot is not connected to a channel."
 LOG_REMOVE_FAILED_USER_ABSENT           = "Remove command failed: User '{user}' attempted to remove song while not connected to {channel}."
 LOG_REMOVE_FAILED_DIFFERENT_CHANNEL     = "Remove command failed: User '{user}' attempted to remove song in voice channel '{user_vc}', but the bot is in '{bot_vc}'"
@@ -182,7 +193,7 @@ LOG_SKIP_FAILED_USER_ABSENT             = "Skip command failed: User '{user}' at
 LOG_SKIP_FAILED_DIFFERENT_CHANNEL       = "Skip command failed: User '{user}' attempted to skip from voice channel '{user_vc}', but the bot is in '{bot_vc}'."
 LOG_SKIP_FAILED_NO_AUDIO                = "Skip command failed: User '{user}' attempted to skip track in channel '{channel}' but no track is currently playing."
 
-#
+# Connection
 LOG_CONNECTED_TO_CHANNEL                = "Bot connected to voice channel '{channel}'."
 LOG_MOVED_TO_CHANNEL                    = "Bot moved to another channel '{channel}'."
 LOG_ALREADY_IN_CHANNEL                  = "User '{user}' attempted to join the same channel where the bot is already connected."

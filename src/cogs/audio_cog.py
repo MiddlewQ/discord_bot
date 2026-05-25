@@ -223,38 +223,67 @@ class AudioCog(commands.Cog):
         embed.set_footer(icon_url=requester.avatar.url, text=f"requested by {str(requester).capitalize()}") 
         return embed
 
-    async def search_youtube(self, query):
+    async def search_youtube(self, query: str) -> tuple[dict | None, str | None]:
         loop = asyncio.get_running_loop()
 
         is_url = query.startswith("http")
         search_query = query if is_url else f"ytsearch1:{query}"
 
-        info = await loop.run_in_executor(
-            None,
-            lambda: self.ytdl.extract_info(search_query, download=False)
-        )
+        try:
+            info = await loop.run_in_executor(
+                None,
+                lambda: self.ytdl.extract_info(search_query, download=False)
+            )
+
+        except (DownloadError, ExtractorError) as e:
+            error_text = str(e).lower()
+
+            if "this video is not available" in error_text:
+                logger.warning(msg.LOG_YTDLP_FAILED_UNAVAILABLE.format(query=query, error=e))
+                return None, msg.PLAY_FAIL_VIDEO_UNAVAILABLE
+
+            if "no supported javascript runtime" in error_text or "deno" in error_text:
+                logger.warning(msg.LOG_YTDLP_FAILED_RUNTIME.format(query=query,error=e))
+                return None, msg.PLAY_FAIL_YTDLP_RUNTIME
+
+            if ("sign in to confirm your age" in error_text
+                or ("age-restricted" in error_text)
+            ):
+                logger.warning(msg.LOG_YTDLP_FAILED_AGE_RESTRICTION.format(query=query, error=e))
+                return None, msg.PLAY_FAIL_VIDEO_AGE_RESTRICTED
+
+            logger.warning(msg.LOG_YTDLP_FAILED_EXTRACTION.format(query=query, error=e))
+            return None, msg.PLAY_FAIL_YTDLP_ERROR
+        except Exception:
+            logger.exception(msg.LOG_YTDLP_FAILED_UNEXPECTED.format(query=query))
+            return None, msg.PLAY_FAIL_YTDLP_ERROR
+
 
         if not isinstance(info, dict):
-            return None
+            logger.warning(msg.LOG_YTDLP_RESULT_INVALID.format(query=query,result_type=type(info).__name__,))
+            return None, msg.PLAY_FAIL_VIDEO_NOT_FOUND
 
         entries = info.get("entries")
 
         if isinstance(entries, list):
             if not entries:
-                return None
+                logger.warning(msg.LOG_YTDLP_RESULT_EMPTY.format(query=query))
+                return None, msg.PLAY_FAIL_VIDEO_NOT_FOUND
 
             maybe_entry = entries[0]
         else:
             maybe_entry = info 
 
         if not isinstance(maybe_entry, dict):
-            return None
+            logger.warning(msg.LOG_YTDLP_ENTRY_INVALID.format(query=query, entry_type=type(maybe_entry).__name__))
+            return None, msg.PLAY_FAIL_VIDEO_NOT_FOUND
 
         entry = maybe_entry 
 
         webpage_url = entry.get('webpage_url') or entry.get("original_url")
         if not isinstance(webpage_url, str) or not webpage_url:
-            return None
+            logger.warning(msg.LOG_YTDLP_ENTRY_MISSING_URL.format(query=query))
+            return None, msg.PLAY_FAIL_VIDEO_NOT_FOUND
 
         thumbnail = entry.get("thumbnail")
         if not thumbnail:
@@ -273,7 +302,7 @@ class AudioCog(commands.Cog):
             'title': entry.get('title'),
             'thumbnail': thumbnail,
             'duration': entry.get('duration') or 0,
-        }
+        }, None
 
     # 4. Core playback internals
     async def start_playback(self, ctx):
@@ -382,11 +411,10 @@ class AudioCog(commands.Cog):
 
     async def resolve_queue_entry(self, ctx, query: str) -> QueueEntry | None:
 
-        track = await self.search_youtube(query)
+        track, error_message = await self.search_youtube(query)
         
         if track is None:
-            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_NOT_FOUND))
+            await ctx.send(embed=discord.Embed(description=error_message or msg.PLAY_FAIL_VIDEO_NOT_FOUND))
             return None
         
         title = track.get("title") or "Unknown title"
