@@ -33,26 +33,6 @@ class HelpCog(commands.Cog):
                 color=discord.Color.blue()
             ))
 
-
-    @commands.command(name="paginate")
-    async def paginate(self, ctx):
-        data = {"fields": []}
-
-        for i in range(1, 33):
-            data["fields"].append({
-                "label": "User Event",
-                "item": f"User {i} has been added",
-            })
-
-        pagination_view = PaginationView(
-            data=data,
-            timeout=None,
-            title="Test pagination",
-            description="Testing paginated embed output",
-        )
-
-        await pagination_view.send(ctx)
-
     @commands.command(name="ping")
     async def test_response_to_bot(self, ctx):
         await ctx.send("pong")
