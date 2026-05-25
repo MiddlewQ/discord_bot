@@ -193,3 +193,7 @@ LOG_TIMEOUT_START                   = "Starting timeout: reason={reason}, second
 LOG_TIMEOUT_NO_HUMANS               = "Timeout executed: Leaving voice channel '{channel}' because no humans remain."
 LOG_TIMEOUT_PAUSED                  = "Timeout executed: Leaving voice channel '{channel}' because playback was paused too long."
 LOG_TIMEOUT_IDLE                    = "Timeout executed: Leaving voice channel '{channel}' because nothing has been playing for a while."
+
+
+# Pagination 
+LOG_PAGINATOR_EXECUTED              = "Pagination view executed: Page {page}."
