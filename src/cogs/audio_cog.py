@@ -242,15 +242,20 @@ class AudioCog(commands.Cog):
                 logger.warning(msg.LOG_YTDLP_FAILED_UNAVAILABLE.format(query=query, error=e))
                 return None, msg.PLAY_FAIL_VIDEO_UNAVAILABLE
 
-            if "no supported javascript runtime" in error_text or "deno" in error_text:
-                logger.warning(msg.LOG_YTDLP_FAILED_RUNTIME.format(query=query,error=e))
-                return None, msg.PLAY_FAIL_YTDLP_RUNTIME
-
-            if ("sign in to confirm your age" in error_text
-                or ("age-restricted" in error_text)
+            if (
+                "sign in to confirm your age" in error_text
+                or "age-restricted" in error_text
+                or "this video may be inappropriate" in error_text
             ):
-                logger.warning(msg.LOG_YTDLP_FAILED_AGE_RESTRICTION.format(query=query, error=e))
+                logger.warning(msg.LOG_YTDLP_FAILED_AGE_RESTRICTED.format(query=query, error=e))
                 return None, msg.PLAY_FAIL_VIDEO_AGE_RESTRICTED
+
+            if (
+                "no supported javascript runtime" in error_text
+                or ("javascript runtime" in error_text and "deno" in error_text)
+            ):
+                logger.warning(msg.LOG_YTDLP_FAILED_RUNTIME.format(query=query, error=e))
+                return None, msg.PLAY_FAIL_YTDLP_RUNTIME
 
             logger.warning(msg.LOG_YTDLP_FAILED_EXTRACTION.format(query=query, error=e))
             return None, msg.PLAY_FAIL_YTDLP_ERROR
