@@ -680,7 +680,7 @@ class AudioCog(commands.Cog):
         logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(number_of_tracks=queued_count))
 
 
-    @commands.command(name="pause", help=msg.HELP_MESSAGES["pause"], usage=msg.HELP_MESSAGES["pause"])
+    @commands.command(name="pause", help=msg.HELP_MESSAGES["pause"], usage=msg.HELP_USAGES["pause"])
     async def pause(self, ctx):
         if await self.reject_wrong_text_channel(ctx):
             return
