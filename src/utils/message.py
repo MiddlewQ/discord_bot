@@ -150,17 +150,11 @@ LOG_MULTIPLAY_FAILED_NO_ARGS        = "Multiplay command failed: User '{user}' p
 
 # Pause
 LOG_PAUSE_EXECUTED                  = "Pause command executed: Paused by '{user}'."
-LOG_PAUSE_FAILED_BOT_ABSENT         = "Pause command failed: User '{user}' attempted to pause playback but the bot is not connected to a channel."
-LOG_PAUSE_FAILED_USER_ABSENT        = "Pause command failed: User '{user}' attempted to pause playback while not connected to '{channel}'."
-LOG_PAUSE_FAILED_DIFFERENT_CHANNEL  = "Pause command failed: User '{user}' attempted to pause playback from '{user_vc}', but the bot is in '{bot_vc}'."
 LOG_PAUSE_FAILED_ALREADY_PAUSED     = "Pause command failed: User '{user}' attempted to pause playback while already paused."
 LOG_PAUSE_FAILED_NOT_PLAYING        = "Pause command failed: User '{user}' attempted to pause playback while nothing is playing."
 
 # Resume
 LOG_RESUME_EXECUTED                 = "Resume command executed: Resumed by '{user}'."
-LOG_RESUME_FAILED_BOT_ABSENT        = "Resume command failed: User '{user}' attempted to resume playback but the bot is not connected to a channel."
-LOG_RESUME_FAILED_USER_ABSENT       = "Resume command failed: User '{user}' attempted to resume playback while not connected to '{channel}'."
-LOG_RESUME_FAILED_DIFFERENT_CHANNEL = "Resume command failed: User '{user}' attempted to resume playback from '{user_vc}', but the bot is in '{bot_vc}'."
 LOG_RESUME_FAILED_ALREADY_PLAYING   = "Resume command failed: User '{user}' attempted to resume playback while audio is already playing."
 LOG_RESUME_FAILED_NOT_PAUSED        = "Resume command failed: User '{user}' attempted to resume playback while nothing is paused."
 
@@ -170,28 +164,17 @@ LOG_QUEUE_DISPLAYED                 = "Queue command executed: Showing {number_o
 
 # Clear
 LOG_CLEAR_EXECUTED                  = "Clear command executed: Queue cleared by '{user}'."
-LOG_CLEAR_FAILED_USER_ABSENT        = "Clear command failed: User '{user}' attempted to clear queue while not connected to '{channel}'."
-LOG_CLEAR_FAILED_DIFFERENT_CHANNEL  = "Clear command failed: User '{user}' attempted to clear queue from '{user_vc}', but the bot is in '{bot_vc}'."
 
 # Remove
 LOG_REMOVE_EXECUTED                 = "Remove command executed: Track at index {index} removed by '{user}'."
 LOG_REMOVE_LAST_EXECUTED            = "Remove command executed: Last track at index {index} removed by '{user}'."
-LOG_REMOVE_FAILED_BOT_ABSENT        = "Remove command failed: User '{user}' attempted to remove a track but the bot is not connected to a channel."
-LOG_REMOVE_FAILED_USER_ABSENT       = "Remove command failed: User '{user}' attempted to remove a track while not connected to '{channel}'."
-LOG_REMOVE_FAILED_DIFFERENT_CHANNEL = "Remove command failed: User '{user}' attempted to remove a track from '{user_vc}', but the bot is in '{bot_vc}'."
 LOG_REMOVE_FAILED_NO_QUEUE          = "Remove command failed: User '{user}' attempted to remove a track while the queue was empty."
 
 # Stop
 LOG_STOP_EXECUTED                   = "Stop command executed: Queue cleared and disconnected from '{channel}' by '{user}'."
-LOG_STOP_FAILED_NOT_CONNECTED       = "Stop command failed: User '{user}' attempted to stop playback but the bot is not connected to a channel."
-LOG_STOP_FAILED_USER_ABSENT         = "Stop command failed: User '{user}' attempted to stop playback while not connected to '{channel}'."
-LOG_STOP_FAILED_DIFFERENT_CHANNEL   = "Stop command failed: User '{user}' attempted to stop playback from '{user_vc}', but the bot is in '{bot_vc}'."
 
 # Skip
 LOG_TRACK_SKIPPED                   = "Skip command executed: Track '{title}' was skipped by '{user}'."
-LOG_SKIP_FAILED_BOT_ABSENT          = "Skip command failed: User '{user}' attempted to skip a track but the bot is not connected to a channel."
-LOG_SKIP_FAILED_USER_ABSENT         = "Skip command failed: User '{user}' attempted to skip a track while not connected to '{channel}'."
-LOG_SKIP_FAILED_DIFFERENT_CHANNEL   = "Skip command failed: User '{user}' attempted to skip from '{user_vc}', but the bot is in '{bot_vc}'."
 LOG_SKIP_FAILED_NO_AUDIO            = "Skip command failed: User '{user}' attempted to skip in '{channel}', but no track is currently playing."
 
 # Text channel/session
