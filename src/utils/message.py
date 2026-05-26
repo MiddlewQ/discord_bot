@@ -107,7 +107,8 @@ DISCONNECTED_FROM_VOICE             = ":gear: I was disconnected from voice. Que
 # -----------------------------------------------------------------------------------------------------------------
 
 # Help
-LOG_HELP_EXECUTED                   = "Help command executed: User '{user}' ran the help command for {command}."
+LOG_HELP_EXECUTED                   = "Help command executed: User '{user}' ran the general help command."
+LOG_HELP_EXECUTED_CMD               = "Help command executed: User '{user}' ran the help command for '{command}'."
 LOG_HELP_FAILED_INVALID_CMD         = "Help command failed: User '{user}' attempted to run help for an invalid command '{command}'."
 
 # General

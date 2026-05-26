@@ -31,7 +31,7 @@ class HelpCog(commands.Cog):
             logger.info(msg.LOG_HELP_FAILED_INVALID_CMD.format(user=ctx.author.name, command=command))
             return
 
-        logger.info(f"Showing help message for command {cmd}")
+        logger.info(msg.LOG_HELP_EXECUTED_CMD.format(user=ctx.author.name, command=cmd))
         embed = discord.Embed(
             title=f"⚙️ {cmd.name.capitalize()}",
             description=cmd.help,
@@ -75,3 +75,4 @@ class HelpCog(commands.Cog):
         )
 
         await pagination_view.send(ctx)
+        logger.info(msg.LOG_HELP_EXECUTED.format(user=ctx.author.name))
