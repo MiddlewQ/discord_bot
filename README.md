@@ -44,8 +44,6 @@ All command responses are sent as Discord embeds.
 
 This bot is intended to run on Linux.
 
-Running it on Windows is not recommended. It may work, but it is not the target environment and has not been tested properly.
-
 For best results, run it on a Raspberry Pi or another always-on Linux machine. Running the bot from a regular desktop PC can work, but audio playback may lag more compared to running it on a dedicated device like a Raspberry Pi.
 
 ## Setup
