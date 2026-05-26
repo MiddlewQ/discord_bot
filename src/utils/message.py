@@ -2,6 +2,7 @@
 # -----------------------------------------------------------------------------------------------------------------
 
 HELP_MESSAGES = {
+    "help": "Displays help message for all commands or a specific command.",
     "join": "Connects the bot to your voice channel.",
     "play": "Searches YouTube and plays a track.",
     "multiplay": "Adds up to 20 tracks to the queue.",
@@ -17,6 +18,7 @@ HELP_MESSAGES = {
 }
 
 HELP_USAGES = {
+    "help": "!help, !help <command>",
     "join": "!join",
     "play": "!play <search/URL>",
     "multiplay": "!multiplay <search/URL> | <search/URL> | ...",

@@ -45,7 +45,7 @@ class HelpCog(commands.Cog):
     async def test_response_to_bot(self, ctx):
         await ctx.send("pong")
     
-    @commands.command(name="help", aliases=["h"], help="Displays help message for all commands or a specific command.", usage="!help, !help <command>")
+    @commands.command(name="help", aliases=["h"], help=msg.HELP_MESSAGES["help"], usage=msg.HELP_USAGES["help"])
     async def help(self, ctx, *, command:str | None = None):
         if command:
             await self.show_command_help(ctx, command=command)
