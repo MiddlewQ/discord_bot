@@ -5,6 +5,8 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
 
 from .audio_types import *
+from src.audio.track import Track
+from src.audio.track_queue import TrackQueue
 from src.utils.logging_config import *
 import src.utils.message as msg
 from src.utils.time_convertion import *
@@ -18,9 +20,7 @@ class AudioCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot: commands.Bot = bot
         
-        self.current_track: QueueEntry | None = None
-        self.track_queue: list[QueueEntry] = []
-        self.queued_duration_seconds: int = 0
+        self.track_queue: TrackQueue = TrackQueue()
         self.logger = logger
 
         self.timeout_task = None
@@ -31,6 +31,7 @@ class AudioCog(commands.Cog):
         self.FFMPEG_OPTIONS = {'options':        '-vn', 
                                'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5' }
 
+        # While playing or paused, commands are only accepted from this channel
         self.session_text_channel: discord.TextChannel | discord.Thread | None = None
         self.vc: discord.VoiceClient | None = None
 
@@ -183,20 +184,11 @@ class AudioCog(commands.Cog):
             user_channel=user_channel,
         )
 
-    def _clear_playback_state(self):
-        self.track_queue.clear()
-        self.current_track = None
-        self.queued_duration_seconds = 0
-
     def _reset_voice_session(self):
         self.cancel_timeout()
-        self._clear_playback_state()
+        self.track_queue.clear()
         self.vc = None
         self.session_text_channel = None
-
-    def subtract_track_duration(self, queue_entry: QueueEntry):
-        duration = queue_entry.track.get("duration") or 0
-        self.queued_duration_seconds = max(0, self.queued_duration_seconds - duration)
 
     async def cleanup_voice(self, message: str):
         text_channel = self.session_text_channel
@@ -215,7 +207,7 @@ class AudioCog(commands.Cog):
 
         
     # 3. Embed / yt-dlp helders
-    def build_queued_track_embed(self, track, requester):
+    def build_queued_track_embed(self, track: Track, position: int, requester):
         embed = discord.Embed(
             title="",
             color=discord.Color.blue(),
@@ -223,17 +215,16 @@ class AudioCog(commands.Cog):
         )
         bot_user = self.bot.user
         icon_url = bot_user.display_avatar.url if bot_user is not None else None
-        duration = track.get("duration") or 0
-        time_until_played = max(0, self.queued_duration_seconds - duration)
+        time_until_played = self.track_queue.time_until(position)
         fields = [
             # Name, value, inline
-            ("Track", f"[{track['title']}]({track['webpage_url']})", False),
+            ("Track", f"[{track.title}]({track.webpage_url})", False),
             ("", "", False),
             ("Estimated time until played", f"{seconds_to_time_format(time_until_played)}", True),
-            ("Track length", f"{seconds_to_time_format(duration)}", True),
+            ("Track length", f"{seconds_to_time_format(track.duration)}", True),
             ("", "", True),
-            ("Position in upcoming", f"{len(self.track_queue) if len(self.track_queue) > 0 else 'Next'}", True),
-            ("Position in queue", f"{len(self.track_queue)+1}", True),
+            ("Position in upcoming", f"{position}", True),
+            ("Position in queue", f"{position + 1}", True),  # also counts the current track
             ("", "", True)
         ]
 
@@ -241,13 +232,12 @@ class AudioCog(commands.Cog):
             embed.add_field(name=name, value=val, inline=inline)   
 
         embed.set_author(icon_url=icon_url, name="Added track")
-        thumbnail = track.get("thumbnail")
-        if thumbnail:
-            embed.set_thumbnail(url=thumbnail)
+        if track.thumbnail:
+            embed.set_thumbnail(url=track.thumbnail)
         embed.set_footer(icon_url=requester.avatar.url, text=f"requested by {str(requester).capitalize()}") 
         return embed
 
-    async def search_youtube(self, query: str) -> tuple[dict | None, str | None]:
+    async def search_youtube(self, query: str) -> tuple[Track | None, str | None]:
         loop = asyncio.get_running_loop()
 
         is_url = query.startswith("http")
@@ -326,12 +316,12 @@ class AudioCog(commands.Cog):
 
                 thumbnail = first_url or last_url
 
-        return {
-            'webpage_url': webpage_url,
-            'title': entry.get('title'),
-            'thumbnail': thumbnail,
-            'duration': entry.get('duration') or 0,
-        }, None
+        return Track(
+            title=entry.get('title') or "Unknown title",
+            webpage_url=webpage_url,
+            duration=int(entry.get('duration') or 0),
+            thumbnail=thumbnail,
+        ), None
 
     # 4. Core playback internals
     async def start_playback(self, ctx):
@@ -349,46 +339,26 @@ class AudioCog(commands.Cog):
         if error is not None:
             logger.warning(f"Playback ended with error: {error}")
 
-        if self.current_track is not None:
-            self.subtract_track_duration(self.current_track)
-            self.current_track = None
-
-        while self.track_queue:
+        while (track := self.track_queue.advance()) is not None:
             vc = self.get_vc()
             if vc is None:
                 logger.warning("Cannot play next track because the bot is not connected. Clearing playback state.")
                 self._reset_voice_session()
                 return
-            queue_entry = self.track_queue.pop(0)
-            
-            started = await self.try_play_track(vc, queue_entry, ctx)
-            
+
+            started = await self.try_play_track(vc, track, ctx)
+
             if started:
                 return
-             
-            self.subtract_track_duration(queue_entry)
 
-        self.current_track = None
-        self.queued_duration_seconds = 0
         self.session_text_channel = None
 
         if self.get_vc() is not None:
             self.start_timeout(reason=TimeoutReason.IDLE)
 
-    async def try_play_track(self, vc: discord.VoiceClient, queue_entry: QueueEntry, ctx=None) -> bool:
-        track = queue_entry.track
-        
-        webpage_url = track.get("webpage_url")
-
-        if not isinstance(webpage_url, str) or not webpage_url:
-            logger.info(f"Skipping queue item with invalid source: {track}")
-
-            if ctx is not None:
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYBACK))
-            return False
-        
+    async def try_play_track(self, vc: discord.VoiceClient, track: Track, ctx=None) -> bool:
         try:
-            data = await self.extract_audio_info(webpage_url)
+            data = await self.extract_audio_info(track.webpage_url)
 
             stream_url = data.get("url")
             title= data.get("title") or "Unknown title"
@@ -411,7 +381,6 @@ class AudioCog(commands.Cog):
                 )
             )
 
-            self.current_track = queue_entry
             self.cancel_timeout()
 
             logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=title))
@@ -438,39 +407,25 @@ class AudioCog(commands.Cog):
         
         return data
 
-    async def resolve_queue_entry(self, ctx, query: str) -> QueueEntry | None:
+    async def resolve_track(self, ctx, query: str) -> Track | None:
 
         track, error_message = await self.search_youtube(query)
-        
+
         if track is None:
             await ctx.send(embed=discord.Embed(description=error_message or msg.PLAY_FAIL_VIDEO_NOT_FOUND))
             return None
-        
-        title = track.get("title") or "Unknown title"
-        webpage_url = track.get("webpage_url")
-        duration = track.get("duration") or 0
 
-        if not isinstance(webpage_url, str) or not webpage_url:
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_NOT_FOUND))
-            logger.info(msg.LOG_PLAY_FAILED_NOT_FOUND.format(query=query, user=ctx.author.name))
-            return None
-
-        if duration > 1200:
+        if track.duration > 1200:
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_TOO_LONG.format(minutes=1200/60)))
             logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
             return None
 
-        return QueueEntry(track=track)       
-    
-    def queue_track(self, queue_entry: QueueEntry):
-        duration = queue_entry.track.get("duration") or 0
-        self.track_queue.append(queue_entry)
-        self.queued_duration_seconds += duration
+        return track
 
-        title = queue_entry.track.get("title") or "Unknown title"
-        webpage_url = queue_entry.track.get("webpage_url") or ""
-
-        logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=title, webpage_url=webpage_url))
+    def queue_track(self, track: Track) -> int:
+        position = self.track_queue.enqueue(track)
+        logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=track.title, webpage_url=track.webpage_url))
+        return position
 
 
     # 5. Idle / cleanup internals
@@ -648,27 +603,23 @@ class AudioCog(commands.Cog):
 
         query = " ".join(args)
 
-        queue_entry = await self.resolve_queue_entry(ctx, query)
-        if queue_entry is None:
+        track = await self.resolve_track(ctx, query)
+        if track is None:
             return
-
-        track = queue_entry.track
-        title = track.get("title") or "Unknown title"
-        webpage_url = track.get("webpage_url") or ""        
 
         if should_connect_or_move:
             ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
             if not ok:
                 return
 
-        self.queue_track(queue_entry=queue_entry)
-        
+        position = self.queue_track(track)
+
         if should_start_after_queue:
             self.session_text_channel = ctx.channel
-            await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=title, webpage_url=webpage_url)))
+            await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=track.title, webpage_url=track.webpage_url)))
             await self.start_playback(ctx)
         else:
-            await ctx.send(embed=self.build_queued_track_embed(track, ctx.author))
+            await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))
 
 
     @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
@@ -722,15 +673,15 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_MAX_TRACKS.format(number=add_max)))
             searches = searches[:add_max]
 
-        queued_entries: list[QueueEntry] = []
+        resolved_tracks: list[Track] = []
         for search in searches:
-            queue_entry = await self.resolve_queue_entry(ctx, search)
-            if queue_entry is None:
+            track = await self.resolve_track(ctx, search)
+            if track is None:
                 continue
 
-            queued_entries.append(queue_entry)
+            resolved_tracks.append(track)
 
-        queued_count = len(queued_entries) 
+        queued_count = len(resolved_tracks)
 
         if queued_count == 0:
             return
@@ -740,9 +691,9 @@ class AudioCog(commands.Cog):
             if not ok:
                 return
         
-        for queue_entry in queued_entries:
-            self.queue_track(queue_entry=queue_entry)
-            await ctx.send(embed=self.build_queued_track_embed(queue_entry.track, ctx.author))
+        for track in resolved_tracks:
+            position = self.queue_track(track)
+            await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))
 
         if should_start_after_queue:
             self.session_text_channel = ctx.channel
@@ -823,59 +774,51 @@ class AudioCog(commands.Cog):
             return
         assert voice.vc is not None
 
-        if voice.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or self.current_track is None:
+        track = self.track_queue.current
+
+        if voice.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or track is None:
             logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user.name, channel=voice.vc.channel.name))
             await ctx.send(embed=discord.Embed(description=msg.SKIP_FAIL_NOTHING_TO_SKIP))
             return
 
-        track = self.current_track.track
-        title = track.get("title") or "Unknown title"
-        webpage_url = track.get("webpage_url") or ""
-        
         voice.vc.stop()
 
-        await ctx.send(embed=discord.Embed(description=msg.SKIP_TRACK.format(title=title, webpage_url=webpage_url)))            
-        logger.info(msg.LOG_TRACK_SKIPPED.format(title=title, user=user.name))
+        await ctx.send(embed=discord.Embed(description=msg.SKIP_TRACK.format(title=track.title, webpage_url=track.webpage_url)))
+        logger.info(msg.LOG_TRACK_SKIPPED.format(title=track.title, user=user.name))
 
 
     @commands.command(name="queue", aliases=["q"], help=msg.HELP_MESSAGES['queue'], usage=msg.HELP_USAGES['queue'])
     async def queue(self, ctx):
         
-        if not self.current_track and not self.track_queue:
+        if self.track_queue.is_empty:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
             logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
-        
+
         vc = self.get_vc()
         channel_name = vc.channel.name if vc is not None and vc.channel is not None else "Not connected"
 
         data = {
             "time_label": "Estimated Total Playtime",
-            "time": seconds_to_time_format(self.queued_duration_seconds),
+            "time": seconds_to_time_format(self.track_queue.total_duration),
             "thumbnail": ctx.guild.icon.url if ctx.guild and ctx.guild.icon else None,
             "fields": [],
         }
 
-
-        if self.current_track is not None:
-            track = self.current_track.track
-            title = track.get("title") or "Unknown title"
-            webpage_url = track.get("webpage_url") or "Unknown url"
+        current = self.track_queue.current
+        if current is not None:
             description = msg.QUEUE_START_PLAYBACK.format(
-                title=title,
-                webpage_url=webpage_url
-            )        
+                title=current.title,
+                webpage_url=current.webpage_url
+            )
         else:
             description = "Nothing currently playing."
 
-
-        for idx, queue_entry in enumerate(self.track_queue, start=1):
-            track = queue_entry.track
-            title = track.get("title") or "Unknown title"
-
+        upcoming = self.track_queue.upcoming
+        for position, track in enumerate(upcoming, start=1):
             data['fields'].append({
                 'label': "",
-                'item': f"**{idx}.** {title}",
+                'item': f"**{position}.** {track.title}",
             })
 
         pagination_view = PaginationView(
@@ -887,7 +830,7 @@ class AudioCog(commands.Cog):
 
         await pagination_view.send(ctx)
         
-        number_of_tracks = len(self.track_queue) + (1 if self.current_track else 0)
+        number_of_tracks = len(upcoming) + (1 if current is not None else 0)
 
         logger.info(
             msg.LOG_QUEUE_DISPLAYED.format(
@@ -899,17 +842,15 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="playing", aliases=["np"], help=msg.HELP_MESSAGES['playing'], usage=msg.HELP_USAGES['playing'])
     async def playing(self, ctx):
-        if self.current_track is None:
+        track = self.track_queue.current
+
+        if track is None:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PLAYING))
-            return 
-        
-        track = self.current_track.track
-        title = track.get("title") or "Unknown title"
-        webpage_url = track.get("webpage_url") or "Unknown url"
-        thumbnail = track.get("thumbnail") 
-        embed = discord.Embed(description=msg.PLAYING.format(title=title, webpage_url=webpage_url))
-        if thumbnail:
-            embed.set_thumbnail(url=thumbnail)
+            return
+
+        embed = discord.Embed(description=msg.PLAYING.format(title=track.title, webpage_url=track.webpage_url))
+        if track.thumbnail:
+            embed.set_thumbnail(url=track.thumbnail)
 
         await ctx.send(embed=embed)
 
@@ -926,7 +867,7 @@ class AudioCog(commands.Cog):
         if await self.reject_invalid_voice_channel(ctx, voice):
             return
 
-        if not self.track_queue:
+        if not self.track_queue.upcoming:
             logger.info(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_QUEUE_EMPTY))
             return
@@ -936,32 +877,26 @@ class AudioCog(commands.Cog):
                 position = int(args[0])
             except ValueError:
                 await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
-                return 
-            
-            if position < 1 or position > len(self.track_queue):
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
-                return 
-            index = position - 1
-
+                return
         else:
-            index = len(self.track_queue) - 1
+            position = len(self.track_queue.upcoming)
 
-        queue_entry = self.track_queue.pop(index)
-        track = queue_entry.track
-        title = track.get("title") or "Unknown title"
+        track = self.track_queue.remove(position)
 
-        self.subtract_track_duration(queue_entry)
-        embed = discord.Embed(description=msg.TRACK_REMOVED.format(title=title, index=index + 1))
+        if track is None:
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
+            return
 
-        thumbnail = track.get("thumbnail")
-        if thumbnail:
-            embed.set_thumbnail(url=thumbnail)
+        embed = discord.Embed(description=msg.TRACK_REMOVED.format(title=track.title, index=position))
+
+        if track.thumbnail:
+            embed.set_thumbnail(url=track.thumbnail)
         await ctx.send(embed=embed)
-        
+
         logger.info(
-            msg.LOG_REMOVE_LAST_EXECUTED.format(index=index + 1, user=ctx.author.name)
+            msg.LOG_REMOVE_LAST_EXECUTED.format(index=position, user=ctx.author.name)
             if not args
-            else msg.LOG_REMOVE_EXECUTED.format(index=index + 1, user=ctx.author.name)
+            else msg.LOG_REMOVE_EXECUTED.format(index=position, user=ctx.author.name)
         )
 
 
@@ -976,12 +911,12 @@ class AudioCog(commands.Cog):
             return
         assert voice.vc is not None
 
-        if self.current_track is None and not self.track_queue:
+        if self.track_queue.is_empty:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
             logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
-        
-        self._clear_playback_state()
+
+        self.track_queue.clear()
         self.session_text_channel = None
         
         if voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
@@ -1012,10 +947,8 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], usage=msg.HELP_USAGES['status'])
     async def status(self, ctx):
-        tracks = []
-        for i in range(len(self.track_queue)):
-            tracks.append(self.track_queue[i].track['title'])        
-        
+        tracks = [track.title for track in self.track_queue.upcoming]
+
         vc = self.get_vc()
 
         voice = vc.channel.name if vc is not None and vc.is_connected() else None 
@@ -1024,18 +957,15 @@ class AudioCog(commands.Cog):
         is_paused = vc.is_paused() if vc else False
             
         
-        current_title = (
-            self.current_track.track.get("title") or "Unknown"
-            if self.current_track
-            else None
-        )
+        current = self.track_queue.current
+        current_title = current.title if current is not None else None
 
         status_description = (    
             f"Playing: {is_playing}\n"
             f"Paused: {is_paused}\n"
             f"Current Track: {current_title}\n"
             f"Queue: {', '.join(tracks)}\n"  # Join the song URLs with a comma and a space
-            f"Queue Duration: {self.queued_duration_seconds}\n"
+            f"Queue Duration: {self.track_queue.total_duration}\n"
             f"Voice Channel: {voice}\n"
             f"Text Channel: {text}"
         )

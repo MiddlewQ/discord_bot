@@ -4,10 +4,6 @@ from enum import StrEnum, auto
 from dataclasses import dataclass
 import src.utils.message as msg
 
-@dataclass
-class QueueEntry:
-    track: dict
-
 class PlaybackState(StrEnum):
     DISCONNECTED = auto()
     IDLE = auto()
@@ -21,9 +17,6 @@ class VoiceContext:
     user_channel: discord.VoiceChannel | discord.StageChannel | None
 
 
-class TextChannelReject(StrEnum):
-    WRONG_TEXT_CHANNEL = auto()
-    
 class VoiceChannelReject(StrEnum):
     BOT_NOT_CONNECTED  = auto()
     USER_NOT_CONNECTED = auto()

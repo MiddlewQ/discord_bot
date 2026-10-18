@@ -108,6 +108,12 @@ Run the bot:
 
     uv run python -m src.main
 
+Run the tests:
+
+    uv run pytest
+
+`src/audio/` holds the logic without Discord and must not import `discord`; that's what lets `tests/` run without a bot.
+
 Docker is still recommended for deployment, since it avoids most dependency and environment issues.
 
 ## Notes
