@@ -4,9 +4,10 @@ from discord.ext import commands
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
 
-from .audio_types import *
+from .audio_types import VoiceChannelReject, VoiceContext
+from .discord_playback import AsyncioTimer, DiscordSessionListener, DiscordVoiceConnection
 from src.audio.track import Track
-from src.audio.track_queue import TrackQueue
+from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
 from src.utils.logging_config import *
 import src.utils.message as msg
 from src.utils.time_convertion import *
@@ -20,20 +21,12 @@ class AudioCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot: commands.Bot = bot
         
-        self.track_queue: TrackQueue = TrackQueue()
+        self.session = VoiceSession(DiscordSessionListener(bot), AsyncioTimer())
         self.logger = logger
 
-        self.timeout_task = None
-        
-        self.YDL_OPTIONS = {"format": "bestaudio[ext=m4a]/bestaudio/best", 
+        self.YDL_OPTIONS = {"format": "bestaudio[ext=m4a]/bestaudio/best",
                             "noplaylist": True,
                             "quiet": True,}
-        self.FFMPEG_OPTIONS = {'options':        '-vn', 
-                               'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5' }
-
-        # While playing or paused, commands are only accepted from this channel
-        self.session_text_channel: discord.TextChannel | discord.Thread | None = None
-        self.vc: discord.VoiceClient | None = None
 
         self.ytdl = YoutubeDL(self.YDL_OPTIONS) # type: ignore
 
@@ -43,82 +36,47 @@ class AudioCog(commands.Cog):
         return ctx.guild is not None
 
     # 2. State helpers
-    def get_vc(self, guild: discord.Guild | None = None) -> discord.VoiceClient | None:
-        if guild is not None and guild.voice_client is not None:
-            guild_vc = guild.voice_client
-            if isinstance(guild_vc, discord.VoiceClient):
-                self.vc = guild_vc
-                return guild_vc
-        
-        if self.vc is None:
+    def get_vc(self, guild: discord.Guild | None) -> discord.VoiceClient | None:
+        """The guild's voice client, or None when the voice session is not connected."""
+        if guild is None or self.session.state == PlaybackState.DISCONNECTED:
             return None
-        
-        if not self.vc.is_connected():
-            return None
-        
-        return self.vc
 
-    def playback_state(self, guild: discord.Guild | None = None) -> PlaybackState:
-        vc = self.get_vc(guild)
+        vc = guild.voice_client
+        return vc if isinstance(vc, discord.VoiceClient) else None
 
-        if vc is None:
-            return PlaybackState.DISCONNECTED
-        if vc.is_paused():
-            return PlaybackState.PAUSED
-        if vc.is_playing():
-            return PlaybackState.PLAYING
-
-        return PlaybackState.IDLE
-
-    async def ensure_voice_client(self, channel):
+    async def ensure_voice_client(self, channel) -> discord.VoiceClient:
         existing_vc = channel.guild.voice_client
 
         if isinstance(existing_vc, discord.VoiceClient):
-            self.vc = existing_vc
-
             if existing_vc.channel != channel:
                 await existing_vc.move_to(channel)
-            
             return existing_vc
 
-        vc = self.get_vc()
-        
-        if vc is None:
-            vc = await channel.connect()
-            self.vc = vc
-            return vc
-        
-        if vc.channel != channel:
-            await vc.move_to(channel)
-        
-        return vc
+        return await channel.connect()
 
-    async def prepare_voice_for_playback(self, ctx, channel) -> bool:
+    async def connect_session(self, ctx, channel) -> bool:
+        """Connect or move to the voice channel and hand the connection to the voice session."""
         try:
-            await self.ensure_voice_client(channel)
+            vc = await self.ensure_voice_client(channel)
         except Exception:
             logger.exception("Failed to connect or move to voice channel.")
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_CONNECT_TO_VOICE_CHANNEL))
             return False
+
+        self.session.attach(DiscordVoiceConnection(vc, self.ytdl), ctx.channel.id)
         return True
 
     async def reject_invalid_text_channel(self, ctx) -> bool:
-        if self.playback_state() not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+        if self.session.accepts_commands_from(ctx.channel.id):
             return False
-        
-        if self.session_text_channel is None:
-            logger.warning("Playback active without a session text channel. Locking to current channel.")
-            self.session_text_channel = ctx.channel
-            return False
-        
-        if ctx.channel == self.session_text_channel:
-            return False
-        
+
+        session_channel = self.bot.get_channel(self.session.text_channel_id or 0)
+
         logger.info(msg.LOG_COMMAND_FAILED_DIFFERENT_TEXT_CHANNEL.format(
             user=ctx.author.name,
             command=ctx.command.name if ctx.command else "unknown",
             current_channel=ctx.channel.name,
-            session_channel=self.session_text_channel.name,
+            session_channel=getattr(session_channel, "name", self.session.text_channel_id),
         ))
         return True
 
@@ -172,40 +130,16 @@ class AudioCog(commands.Cog):
         return True   
 
     def get_voice_context(self, ctx) -> VoiceContext:
-        state = self.playback_state(ctx.guild)
-        vc = self.get_vc(ctx.guild)
-
         user_voice = ctx.author.voice
         user_channel: discord.VoiceChannel | discord.StageChannel | None = user_voice.channel if user_voice and user_voice.channel else None
 
         return VoiceContext(
-            state=state,
-            vc=vc,
+            state=self.session.state,
+            vc=self.get_vc(ctx.guild),
             user_channel=user_channel,
         )
 
-    def _reset_voice_session(self):
-        self.cancel_timeout()
-        self.track_queue.clear()
-        self.vc = None
-        self.session_text_channel = None
 
-    async def cleanup_voice(self, message: str):
-        text_channel = self.session_text_channel
-        vc = self.get_vc()
-
-        # Mark internal state as gone before Discord fires voice-state events.
-        self._reset_voice_session()
-
-        if vc is not None:
-            await vc.disconnect()
-
-        logger.info(f"Disconnected from voice.")
-
-        if text_channel is not None:
-            await text_channel.send(embed=discord.Embed(description=message))
-
-        
     # 3. Embed / yt-dlp helders
     def build_queued_track_embed(self, track: Track, position: int, requester):
         embed = discord.Embed(
@@ -215,7 +149,7 @@ class AudioCog(commands.Cog):
         )
         bot_user = self.bot.user
         icon_url = bot_user.display_avatar.url if bot_user is not None else None
-        time_until_played = self.track_queue.time_until(position)
+        time_until_played = self.session.queue.time_until(position)
         fields = [
             # Name, value, inline
             ("Track", f"[{track.title}]({track.webpage_url})", False),
@@ -323,90 +257,7 @@ class AudioCog(commands.Cog):
             thumbnail=thumbnail,
         ), None
 
-    # 4. Core playback internals
-    async def start_playback(self, ctx):
-        """Start playback if the bot is not already playing."""
-        state = self.playback_state()
-        
-        if state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            logger.debug(msg.LOG_PLAY_NEXT_IGNORE_ALREADY_PLAYING.format(state=state))
-            return
-        
-        await self.play_next_track(ctx=ctx)
-        return
-    
-    async def play_next_track(self, ctx=None, error=None):
-        if error is not None:
-            logger.warning(f"Playback ended with error: {error}")
-
-        while (track := self.track_queue.advance()) is not None:
-            vc = self.get_vc()
-            if vc is None:
-                logger.warning("Cannot play next track because the bot is not connected. Clearing playback state.")
-                self._reset_voice_session()
-                return
-
-            started = await self.try_play_track(vc, track, ctx)
-
-            if started:
-                return
-
-        self.session_text_channel = None
-
-        if self.get_vc() is not None:
-            self.start_timeout(reason=TimeoutReason.IDLE)
-
-    async def try_play_track(self, vc: discord.VoiceClient, track: Track, ctx=None) -> bool:
-        try:
-            data = await self.extract_audio_info(track.webpage_url)
-
-            stream_url = data.get("url")
-            title= data.get("title") or "Unknown title"
-
-            if not isinstance(stream_url, str) or not stream_url:
-                raise ValueError(f"No valid stream URL found for {title}")
-
-            audio_source = discord.FFmpegPCMAudio(
-                source=stream_url,
-                executable="ffmpeg",
-                options=self.FFMPEG_OPTIONS["options"],
-                before_options=self.FFMPEG_OPTIONS["before_options"],
-            )
-
-            vc.play(
-                source=audio_source,
-                after=lambda e: asyncio.run_coroutine_threadsafe(
-                    self.play_next_track(error=e),
-                    self.bot.loop,
-                )
-            )
-
-            self.cancel_timeout()
-
-            logger.info(msg.LOG_PLAY_NEXT_REQUEST_EXECUTED.format(title=title))
-            return True        
-
-        except Exception:
-            logger.exception("Failed to play track.")
-
-            if ctx is not None:
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_PLAYBACK))
-            
-            return False
-
-    async def extract_audio_info(self, webpage_url: str):
-        loop = asyncio.get_running_loop()
-
-        data = await loop.run_in_executor(
-            None,
-            lambda: self.ytdl.extract_info(url=webpage_url, download=False),
-        )
-
-        if not isinstance(data, dict):
-            raise ValueError("yt-dlp returned invalid data")
-        
-        return data
-
+    # 4. Queueing
     async def resolve_track(self, ctx, query: str) -> Track | None:
 
         track, error_message = await self.search_youtube(query)
@@ -423,48 +274,12 @@ class AudioCog(commands.Cog):
         return track
 
     def queue_track(self, track: Track) -> int:
-        position = self.track_queue.enqueue(track)
+        position = self.session.queue.enqueue(track)
         logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=track.title, webpage_url=track.webpage_url))
         return position
 
 
-    # 5. Idle / cleanup internals
-    def start_timeout(self, reason: TimeoutReason):
-        policy = TIMEOUT_POLICIES[reason]
-        self.cancel_timeout()
-    
-        logger.info(msg.LOG_TIMEOUT_START.format(reason=reason, seconds=policy.seconds))
-        
-        self.timeout_task = asyncio.create_task(
-            self.disconnect_after_timeout(reason)
-        )
-
-    def cancel_timeout(self):
-        if self.timeout_task is None:
-            return 
-
-        task = self.timeout_task
-        self.timeout_task = None
-
-        if task is not asyncio.current_task():
-            task.cancel()
-
-    async def disconnect_after_timeout(self, reason: TimeoutReason):
-        policy = TIMEOUT_POLICIES[reason]
-
-        try:
-            await asyncio.sleep(policy.seconds)
-
-            vc = self.get_vc()
-            channel_name = vc.channel.name if vc is not None and vc.channel else "unknown"
-
-            logger.info(policy.log_message.format(channel=channel_name))
-            await self.cleanup_voice(policy.discord_message)
-        except asyncio.CancelledError:
-            pass
-
-
-    # 6. Listeners
+    # 5. Listeners
     @commands.Cog.listener()
     async def on_command(self, ctx):
         logger.info(f"{ctx.command.name.capitalize()} command requested: User {ctx.author.name} in {ctx.channel.name}")
@@ -476,47 +291,30 @@ class AudioCog(commands.Cog):
                 logger.warning("Bot voice state changed to disconnected. Waiting before cleanup.")
                 await asyncio.sleep(3)
 
-                existing_vc = member.guild.voice_client
-
-                if isinstance(existing_vc, discord.VoiceClient):
-                    self.vc = existing_vc
+                if isinstance(member.guild.voice_client, discord.VoiceClient):
                     logger.info("Voice client still exists after disconnect event. Keeping voice session")
                     return
-                
-                logger.warning("Bot was fully disconnected from voice. Clearing playback state.")
-                
-                text_channel = self.session_text_channel
-                self._reset_voice_session()
 
-                if text_channel is not None:
-                    await text_channel.send(embed=discord.Embed(description=msg.DISCONNECTED_FROM_VOICE))
+                # Already ended by !stop or a timeout
+                if self.session.state == PlaybackState.DISCONNECTED:
+                    return
+
+                logger.warning("Bot was fully disconnected from voice. Clearing playback state.")
+                await self.session.end(EndReason.DISCONNECTED)
 
             return
 
-        vc = self.get_vc()
+        vc = self.get_vc(member.guild)
         if vc is None or vc.channel is None:
             return
-        
+
         if before.channel != vc.channel and after.channel != vc.channel:
             return
-        
-        humans = [m for m in vc.channel.members if not m.bot]
 
-        state = self.playback_state()
+        self.session.on_members_changed()
 
-        if len(humans) == 0:
-            self.start_timeout(TimeoutReason.NO_HUMANS)
-            return 
 
-        if state == PlaybackState.PLAYING:
-                self.cancel_timeout()
-        elif state == PlaybackState.PAUSED:
-            self.start_timeout(TimeoutReason.PAUSED)
-        elif state == PlaybackState.IDLE:
-            self.start_timeout(TimeoutReason.IDLE)
-
-    
-    # 7. Commands
+    # 6. Commands
     @commands.command(name="join", aliases=['connect'], help=msg.HELP_MESSAGES['join'], usage=msg.HELP_USAGES['join'])
     async def join(self, ctx):
         if await self.reject_invalid_text_channel(ctx):
@@ -534,8 +332,7 @@ class AudioCog(commands.Cog):
 
         if voice.vc is not None:
             if voice.user_channel == voice.vc.channel:
-                if voice.state == PlaybackState.IDLE:
-                    self.start_timeout(TimeoutReason.IDLE)
+                self.session.on_members_changed()  # restarts the IDLE timeout when idle
                 await ctx.send(embed=discord.Embed(description=msg.JOIN_FAIL_SAME_CHANNEL))
                 logger.info(msg.LOG_JOIN_FAILED_USER_CHANNEL_SAME.format(user=user.name, channel=voice.vc.channel.name))
                 return
@@ -548,14 +345,8 @@ class AudioCog(commands.Cog):
             old_channel_name = voice.vc.channel.name
 
 
-        try:
-            await self.ensure_voice_client(voice.user_channel)
-        except Exception:
-            logger.exception("Failed to connect to voice channel.")
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_CONNECT_TO_VOICE_CHANNEL))
-            return 
-        
-        self.start_timeout(TimeoutReason.IDLE)
+        if not await self.connect_session(ctx, voice.user_channel):
+            return
 
         if old_channel_name is None:
             await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_CONNECTED.format(channel=voice.user_channel.name)))
@@ -608,16 +399,15 @@ class AudioCog(commands.Cog):
             return
 
         if should_connect_or_move:
-            ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
+            ok = await self.connect_session(ctx, voice.user_channel)
             if not ok:
                 return
 
         position = self.queue_track(track)
 
         if should_start_after_queue:
-            self.session_text_channel = ctx.channel
             await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=track.title, webpage_url=track.webpage_url)))
-            await self.start_playback(ctx)
+            await self.session.start(ctx.channel.id)
         else:
             await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))
 
@@ -687,18 +477,17 @@ class AudioCog(commands.Cog):
             return
 
         if should_connect_or_move:
-            ok = await self.prepare_voice_for_playback(ctx, voice.user_channel)
+            ok = await self.connect_session(ctx, voice.user_channel)
             if not ok:
                 return
-        
+
         for track in resolved_tracks:
             position = self.queue_track(track)
             await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))
 
         if should_start_after_queue:
-            self.session_text_channel = ctx.channel
             await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_START_PLAYBACK.format(number=queued_count)))
-            await self.start_playback(ctx)
+            await self.session.start(ctx.channel.id)
         else:
             await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_QUEUE_TRACKS.format(number=queued_count)))
             
@@ -727,11 +516,10 @@ class AudioCog(commands.Cog):
             logger.info(msg.LOG_PAUSE_FAILED_ALREADY_PAUSED.format(user=user.name)) 
             return 
         
-        voice.vc.pause()
+        self.session.pause()
 
         await ctx.send(embed=discord.Embed(description=msg.PAUSED))
         logger.info(msg.LOG_PAUSE_EXECUTED.format(user=user.name))
-        self.start_timeout(TimeoutReason.PAUSED)
 
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
@@ -755,8 +543,7 @@ class AudioCog(commands.Cog):
             logger.info(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=ctx.author.name))
             return 
 
-        voice.vc.resume()
-        self.cancel_timeout()
+        self.session.resume()
 
         await ctx.send(embed=discord.Embed(description=msg.RESUMED))
         logger.info(msg.LOG_RESUME_EXECUTED.format(user=ctx.author.name))
@@ -774,14 +561,14 @@ class AudioCog(commands.Cog):
             return
         assert voice.vc is not None
 
-        track = self.track_queue.current
-
-        if voice.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or track is None:
+        if voice.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or self.session.queue.current is None:
             logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user.name, channel=voice.vc.channel.name))
             await ctx.send(embed=discord.Embed(description=msg.SKIP_FAIL_NOTHING_TO_SKIP))
             return
 
-        voice.vc.stop()
+        track = self.session.skip()
+        if track is None:
+            return
 
         await ctx.send(embed=discord.Embed(description=msg.SKIP_TRACK.format(title=track.title, webpage_url=track.webpage_url)))
         logger.info(msg.LOG_TRACK_SKIPPED.format(title=track.title, user=user.name))
@@ -790,22 +577,24 @@ class AudioCog(commands.Cog):
     @commands.command(name="queue", aliases=["q"], help=msg.HELP_MESSAGES['queue'], usage=msg.HELP_USAGES['queue'])
     async def queue(self, ctx):
         
-        if self.track_queue.is_empty:
+        queue = self.session.queue
+
+        if queue.is_empty:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
             logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
 
-        vc = self.get_vc()
+        vc = self.get_vc(ctx.guild)
         channel_name = vc.channel.name if vc is not None and vc.channel is not None else "Not connected"
 
         data = {
             "time_label": "Estimated Total Playtime",
-            "time": seconds_to_time_format(self.track_queue.total_duration),
+            "time": seconds_to_time_format(queue.total_duration),
             "thumbnail": ctx.guild.icon.url if ctx.guild and ctx.guild.icon else None,
             "fields": [],
         }
 
-        current = self.track_queue.current
+        current = queue.current
         if current is not None:
             description = msg.QUEUE_START_PLAYBACK.format(
                 title=current.title,
@@ -814,7 +603,7 @@ class AudioCog(commands.Cog):
         else:
             description = "Nothing currently playing."
 
-        upcoming = self.track_queue.upcoming
+        upcoming = queue.upcoming
         for position, track in enumerate(upcoming, start=1):
             data['fields'].append({
                 'label': "",
@@ -842,7 +631,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="playing", aliases=["np"], help=msg.HELP_MESSAGES['playing'], usage=msg.HELP_USAGES['playing'])
     async def playing(self, ctx):
-        track = self.track_queue.current
+        track = self.session.queue.current
 
         if track is None:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PLAYING))
@@ -867,7 +656,9 @@ class AudioCog(commands.Cog):
         if await self.reject_invalid_voice_channel(ctx, voice):
             return
 
-        if not self.track_queue.upcoming:
+        queue = self.session.queue
+
+        if not queue.upcoming:
             logger.info(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.FAIL_QUEUE_EMPTY))
             return
@@ -879,9 +670,9 @@ class AudioCog(commands.Cog):
                 await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
                 return
         else:
-            position = len(self.track_queue.upcoming)
+            position = len(queue.upcoming)
 
-        track = self.track_queue.remove(position)
+        track = queue.remove(position)
 
         if track is None:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
@@ -911,19 +702,12 @@ class AudioCog(commands.Cog):
             return
         assert voice.vc is not None
 
-        if self.track_queue.is_empty:
+        if self.session.queue.is_empty:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
             logger.info(msg.LOG_QUEUE_EMPTY.format(channel=ctx.channel.name))
             return
 
-        self.track_queue.clear()
-        self.session_text_channel = None
-        
-        if voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            self.cancel_timeout()
-            voice.vc.stop()
-        elif voice.state == PlaybackState.IDLE:
-            self.start_timeout(TimeoutReason.IDLE)
+        self.session.clear()
 
         await ctx.send(embed=discord.Embed(description=msg.QUEUE_CLEARED))
         logger.info(msg.LOG_CLEAR_EXECUTED.format(user=ctx.author.name))
@@ -940,24 +724,26 @@ class AudioCog(commands.Cog):
             return
         assert voice.vc is not None
 
-        await self.cleanup_voice(msg.STOP_BY_USER)
-        
-        logger.info(msg.LOG_STOP_EXECUTED.format(channel=voice.vc.channel.name, user=ctx.author.name))
+        channel_name = voice.vc.channel.name
+        await self.session.end(EndReason.STOPPED)
+
+        logger.info(msg.LOG_STOP_EXECUTED.format(channel=channel_name, user=ctx.author.name))
 
 
     @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], usage=msg.HELP_USAGES['status'])
     async def status(self, ctx):
-        tracks = [track.title for track in self.track_queue.upcoming]
+        queue = self.session.queue
+        tracks = [track.title for track in queue.upcoming]
 
-        vc = self.get_vc()
+        vc = self.get_vc(ctx.guild)
 
-        voice = vc.channel.name if vc is not None and vc.is_connected() else None 
-        text = self.session_text_channel.name if self.session_text_channel else None
-        is_playing = vc.is_playing() if vc else False
-        is_paused = vc.is_paused() if vc else False
-            
-        
-        current = self.track_queue.current
+        voice = vc.channel.name if vc is not None and vc.is_connected() else None
+        text_channel = self.bot.get_channel(self.session.text_channel_id or 0)
+        text = getattr(text_channel, "name", None)
+        is_playing = self.session.state == PlaybackState.PLAYING
+        is_paused = self.session.state == PlaybackState.PAUSED
+
+        current = queue.current
         current_title = current.title if current is not None else None
 
         status_description = (    
@@ -965,7 +751,7 @@ class AudioCog(commands.Cog):
             f"Paused: {is_paused}\n"
             f"Current Track: {current_title}\n"
             f"Queue: {', '.join(tracks)}\n"  # Join the song URLs with a comma and a space
-            f"Queue Duration: {self.track_queue.total_duration}\n"
+            f"Queue Duration: {queue.total_duration}\n"
             f"Voice Channel: {voice}\n"
             f"Text Channel: {text}"
         )
@@ -978,4 +764,11 @@ class AudioCog(commands.Cog):
         await ctx.send(embed=embed)
 
 
+    @commands.command(name="tone")
+    async def tone(self, ctx):
+        """Temporary: play a 10 s test beep without YouTube."""
+        channel = ctx.author.voice.channel
+        vc = await self.ensure_voice_client(channel)
+        vc.play(discord.FFmpegPCMAudio("sine=frequency=440:duration=10", before_options="-f lavfi"))
+        await ctx.send("Playing test tone")
 
