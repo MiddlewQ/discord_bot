@@ -3,8 +3,6 @@ import asyncio
 from discord.ext import commands
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
-from enum import StrEnum, auto
-from dataclasses import dataclass
 
 from .audio_types import *
 from src.utils.logging_config import *
@@ -34,7 +32,7 @@ class AudioCog(commands.Cog):
                                'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5' }
 
         self.session_text_channel: discord.TextChannel | discord.Thread | None = None
-        self.vc = None
+        self.vc: discord.VoiceClient | None = None
 
         self.ytdl = YoutubeDL(self.YDL_OPTIONS) # type: ignore
 
@@ -44,24 +42,44 @@ class AudioCog(commands.Cog):
         return ctx.guild is not None
 
     # 2. State helpers
-    def get_vc(self) -> discord.VoiceClient | None:
-        if self.vc is None or not self.vc.is_connected():
+    def get_vc(self, guild: discord.Guild | None = None) -> discord.VoiceClient | None:
+        if guild is not None and guild.voice_client is not None:
+            guild_vc = guild.voice_client
+            if isinstance(guild_vc, discord.VoiceClient):
+                self.vc = guild_vc
+                return guild_vc
+        
+        if self.vc is None:
             return None
+        
+        if not self.vc.is_connected():
+            return None
+        
         return self.vc
 
-    def playback_state(self) -> PlaybackState:
-        vc = self.get_vc()
+    def playback_state(self, guild: discord.Guild | None = None) -> PlaybackState:
+        vc = self.get_vc(guild)
+
         if vc is None:
             return PlaybackState.DISCONNECTED
         if vc.is_paused():
             return PlaybackState.PAUSED
-        
         if vc.is_playing():
             return PlaybackState.PLAYING
 
         return PlaybackState.IDLE
 
     async def ensure_voice_client(self, channel):
+        existing_vc = channel.guild.voice_client
+
+        if isinstance(existing_vc, discord.VoiceClient):
+            self.vc = existing_vc
+
+            if existing_vc.channel != channel:
+                await existing_vc.move_to(channel)
+            
+            return existing_vc
+
         vc = self.get_vc()
         
         if vc is None:
@@ -153,8 +171,8 @@ class AudioCog(commands.Cog):
         return True   
 
     def get_voice_context(self, ctx) -> VoiceContext:
-        state = self.playback_state()
-        vc = self.get_vc()
+        state = self.playback_state(ctx.guild)
+        vc = self.get_vc(ctx.guild)
 
         user_voice = ctx.author.voice
         user_channel: discord.VoiceChannel | discord.StageChannel | None = user_voice.channel if user_voice and user_voice.channel else None
@@ -500,10 +518,17 @@ class AudioCog(commands.Cog):
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if self.bot.user is not None and member.id == self.bot.user.id:
             if before.channel is not None and after.channel is None:
-                if self.vc is None and self.session_text_channel is None:
-                    return
+                logger.warning("Bot voice state changed to disconnected. Waiting before cleanup.")
+                await asyncio.sleep(3)
 
-                logger.warning("Bot was disconnected from voice. Clearing playback state.")
+                existing_vc = member.guild.voice_client
+
+                if isinstance(existing_vc, discord.VoiceClient):
+                    self.vc = existing_vc
+                    logger.info("Voice client still exists after disconnect event. Keeping voice session")
+                    return
+                
+                logger.warning("Bot was fully disconnected from voice. Clearing playback state.")
                 
                 text_channel = self.session_text_channel
                 self._reset_voice_session()
