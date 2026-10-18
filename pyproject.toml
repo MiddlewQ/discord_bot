@@ -7,3 +7,7 @@ dependencies = [
     "python-dotenv",
     "yt-dlp[default]",
 ]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
