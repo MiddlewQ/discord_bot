@@ -47,7 +47,6 @@ FAIL_BOT_BUSY_ELSEWHERE             = ":gear: I am already playing audio in {cha
 
 # Join
 JOIN_FAIL_SAME_CHANNEL              = ":gear: I am already in this voice channel."
-JOIN_FAIL_PLAYING_OTHER_CHANNEL     = ":gear: I am already playing music in another channel."
 
 # Play / Playing / Multiplay
 PLAYING                             = ":gear: **Currently playing:** [{title}]({webpage_url})"
@@ -60,7 +59,6 @@ PLAYBACK_FAIL_DECODE                = "The audio could not be decoded."
 PLAYBACK_FAIL_TIMEOUT               = "The stream did not start in time."
 PLAYBACK_FAIL_UNKNOWN               = "Playback failed."
 PLAY_FAIL_NO_ARGS                   = ":gear: No arguments were provided. Please specify a search term or URL."
-PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL  = ":gear: I am already playing audio in {channel}. Join that voice channel to queue tracks."
 
 # Failed searches: PLAY_FAIL_TRACK wraps one of the reasons below
 PLAY_FAIL_TRACK                     = ":gear: Could not add **{query}**: {reason}"
@@ -100,7 +98,6 @@ FAIL_INVALID_INDEX                  = ":gear: Invalid position in queue."
 
 # Stop
 STOP_BY_USER                        = ":gear: Stopped by user."
-STOP_FAIL_DIFFERENT_CHANNEL         = ":gear: You need to be in the same voice channel as me to stop me."
 
 # Timeout
 TIMEOUT_NO_HUMANS                   = ":gear: Leaving voice because there are no humans left in the channel."
@@ -121,16 +118,11 @@ LOG_HELP_FAILED_INVALID_CMD         = "Help command failed: User '{user}' attemp
 
 # General
 LOG_COMMAND_REJECTED                = "Command rejected: User '{user}' ran '{command}' in '{text_channel}': {reason}. User voice: '{user_vc}', bot voice: '{bot_vc}'."
-LOG_COMMAND_FAILED_BOT_ABSENT       = "Command failed: User '{user}' attempted to run '{command}', but the bot is not connected to a voice channel."
-LOG_COMMAND_FAILED_USER_ABSENT      = "Command failed: User '{user}' attempted to run '{command}' while not connected to '{channel}'."
-LOG_COMMAND_FAILED_DIFFERENT_VOICE_CHANNEL = "Command failed: User '{user}' attempted to run '{command}' from '{user_vc}', but the bot is in '{bot_vc}'."
 
 # Join
 LOG_JOIN_CHANNEL_CONNECT            = "Join command executed: User '{user}' connected to new voice channel '{channel}'."
 LOG_JOIN_CHANNEL_MOVE               = "Join command executed: User '{user}' moved voice channel from '{old}' to '{new}'."
-LOG_JOIN_FAILED_USER_ABSENT         = "Join command failed: User '{user}' is not connected to a voice channel."
 LOG_JOIN_FAILED_USER_CHANNEL_SAME   = "Join command failed: User '{user}' tried to join the same voice channel '{channel}'."
-LOG_JOIN_FAILED_PLAYBACK_OTHER      = "Join command failed: User '{user}' tried to join from '{user_vc}', but the bot is already playing in '{bot_vc}'."
 
 # yt-dlp search
 LOG_YTDLP_FAILED_UNAVAILABLE        = "yt-dlp search failed: Video unavailable for query '{query}'. Error: {error}"
@@ -145,8 +137,6 @@ LOG_YTDLP_ENTRY_MISSING_URL         = "yt-dlp search failed: Entry missing webpa
 
 # Play
 LOG_PLAY_TRACK_QUEUED               = "Play command executed: Track '{title}' added to queue. Webpage URL: {webpage_url}."
-LOG_PLAY_FAILED_USER_NOT_CONNECTED  = "Play command failed: User '{user}' is not connected to a voice channel."
-LOG_PLAY_FAILED_USER_CHANNEL_OTHER  = "Play command failed: User '{user}' tried to add track from '{user_vc}' while the bot is already playing in '{bot_vc}'."
 LOG_PLAY_FAILED_NO_ARGS             = "Play command failed: No arguments provided by '{user}'."
 LOG_PLAY_FAILED_TOO_LONG            = "Play command failed: Track for query '{query}' requested by '{user}' is too long."
 
@@ -183,9 +173,6 @@ LOG_STOP_EXECUTED                   = "Stop command executed: Queue cleared and 
 # Skip
 LOG_TRACK_SKIPPED                   = "Skip command executed: Track '{title}' was skipped by '{user}'."
 LOG_SKIP_FAILED_NO_AUDIO            = "Skip command failed: User '{user}' attempted to skip in '{channel}', but no track is currently playing."
-
-# Text channel/session
-LOG_COMMAND_FAILED_DIFFERENT_TEXT_CHANNEL = "Command failed: User '{user}' attempted to run command '{command}' in '{current_channel}', but the session text channel is '{session_channel}'."
 
 
 # Pagination 
