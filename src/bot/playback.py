@@ -1,10 +1,12 @@
 import asyncio
+import io
+import subprocess
+import sys
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any
 
 import discord
 from discord.ext import commands
-from yt_dlp import YoutubeDL
 
 from src.audio.track import Track
 from src.audio.voice_session import EndReason
@@ -14,7 +16,8 @@ import src.utils.message as msg
 logger = logging.getLogger("audio")
 
 FFMPEG_OPTIONS = "-vn"
-FFMPEG_BEFORE_OPTIONS = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+YTDLP_AUDIO_FORMAT = "bestaudio[ext=m4a]/bestaudio/best"
+STREAM_START_TIMEOUT_SECONDS = 30
 
 END_MESSAGES = {
     EndReason.NO_HUMANS: msg.TIMEOUT_NO_HUMANS,
@@ -25,12 +28,45 @@ END_MESSAGES = {
 }
 
 
+async def start_stream_process(args: list[str], timeout: float) -> subprocess.Popen:
+    """Start a process that writes audio to stdout, and wait until its first bytes arrive.
+
+    Raises RuntimeError if it exits without output (e.g. YouTube refused the stream)
+    or produces nothing within the timeout. The waiting does not consume any output.
+    """
+    process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout = process.stdout
+    assert isinstance(stdout, io.BufferedReader) and process.stderr is not None  # what Popen gives for PIPE
+
+    loop = asyncio.get_running_loop()
+    try:
+        first_bytes = await asyncio.wait_for(loop.run_in_executor(None, stdout.peek), timeout)
+    except asyncio.TimeoutError:
+        stop_stream_process(process)
+        raise RuntimeError(f"No audio after {timeout} seconds")
+
+    if not first_bytes:
+        process.wait()
+        error = process.stderr.read().decode(errors="replace").strip().splitlines()
+        raise RuntimeError(error[-1] if error else f"Stream process exited with code {process.returncode}")
+
+    return process
+
+
+def stop_stream_process(process: subprocess.Popen) -> None:
+    process.kill()
+    process.wait()
+    if process.stdout is not None:
+        process.stdout.close()
+    if process.stderr is not None:
+        process.stderr.close()
+
+
 class DiscordVoiceConnection:
     """VoiceConnection backed by a discord VoiceClient, streaming through yt-dlp and FFmpeg."""
 
-    def __init__(self, vc: discord.VoiceClient, ytdl: YoutubeDL):
+    def __init__(self, vc: discord.VoiceClient):
         self._vc = vc
-        self._ytdl = ytdl
 
     def is_playing(self) -> bool:
         return self._vc.is_playing()
@@ -44,30 +80,30 @@ class DiscordVoiceConnection:
     async def play(self, track: Track, on_end: Callable[[], Coroutine[Any, Any, None]]) -> None:
         loop = asyncio.get_running_loop()
 
-        # The stream URL expires, so it is fetched when the track starts, not when it is queued
-        data = await loop.run_in_executor(
-            None,
-            lambda: self._ytdl.extract_info(track.webpage_url, download=False),
+        # yt-dlp downloads the audio itself and pipes it to FFmpeg. YouTube can hand out stream
+        # URLs that are only valid after a few seconds (yt-dlp's "available_at"); yt-dlp waits
+        # for that, while FFmpeg would request right away and get 403 Forbidden.
+        downloader = await start_stream_process(
+            [sys.executable, "-m", "yt_dlp", "--quiet", "--no-warnings", "--no-playlist",
+             "--format", YTDLP_AUDIO_FORMAT, "--output", "-", track.webpage_url],
+            timeout=STREAM_START_TIMEOUT_SECONDS,
         )
-
-        if not isinstance(data, dict):
-            raise ValueError("yt-dlp returned invalid data")
-
-        stream_url = data.get("url")
-        if not isinstance(stream_url, str) or not stream_url:
-            raise ValueError(f"No valid stream URL found for {track.title}")
+        stdout = downloader.stdout
+        assert isinstance(stdout, io.BufferedReader)
 
         source = discord.FFmpegPCMAudio(
-            source=stream_url,
+            source=stdout,
+            pipe=True,
             executable="ffmpeg",
             options=FFMPEG_OPTIONS,
-            before_options=FFMPEG_BEFORE_OPTIONS,
         )
 
         # discord calls after= from its audio thread, so hand on_end back to the event loop
         def after(error: Exception | None) -> None:
             if error is not None:
                 logger.warning(f"Playback ended with error: {error}")
+            # FFmpeg is gone (track ended, skip, stop); yt-dlp would otherwise block on a full pipe
+            stop_stream_process(downloader)
             asyncio.run_coroutine_threadsafe(on_end(), loop)
 
         self._vc.play(source, after=after)

@@ -88,7 +88,7 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_CONNECT_TO_VOICE_CHANNEL))
             return False
 
-        self.session.attach(DiscordVoiceConnection(vc, self.ytdl), ctx.channel.id)
+        self.session.attach(DiscordVoiceConnection(vc), ctx.channel.id)
         return True
 
     async def reject_invalid_text_channel(self, ctx) -> bool:
