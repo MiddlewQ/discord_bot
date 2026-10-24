@@ -107,8 +107,8 @@ class AsyncioTimer:
         await callback()
 
 
-class DiscordSessionListener:
-    """SessionListener that posts session messages to the session text channel."""
+class DiscordSessionNotifier:
+    """SessionNotifier that posts session messages to the session text channel."""
 
     def __init__(self, bot: commands.Bot):
         self._bot = bot

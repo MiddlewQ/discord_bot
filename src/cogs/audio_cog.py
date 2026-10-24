@@ -5,7 +5,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
 
 from .audio_types import VoiceChannelReject, VoiceContext
-from .discord_playback import AsyncioTimer, DiscordSessionListener, DiscordVoiceConnection
+from .discord_playback import AsyncioTimer, DiscordSessionNotifier, DiscordVoiceConnection
 from src.audio.track import Track
 from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
 from src.utils.logging_config import *
@@ -21,7 +21,7 @@ class AudioCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot: commands.Bot = bot
         
-        self.session = VoiceSession(DiscordSessionListener(bot), AsyncioTimer())
+        self.session = VoiceSession(DiscordSessionNotifier(bot), AsyncioTimer())
         self.logger = logger
 
         self.YDL_OPTIONS = {"format": "bestaudio[ext=m4a]/bestaudio/best",

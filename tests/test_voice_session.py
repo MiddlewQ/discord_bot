@@ -82,7 +82,7 @@ class FakeTimer:
         await callback()
 
 
-class RecordingListener:
+class RecordingNotifier:
     def __init__(self):
         self.failed: list[tuple[str, int | None]] = []
         self.ended: list[tuple[EndReason, int | None]] = []
@@ -95,19 +95,19 @@ class RecordingListener:
 
 
 def attached_session(*titles: str, humans: int = 1, failing: tuple[str, ...] = ()):
-    listener, timer = RecordingListener(), FakeTimer()
-    session = VoiceSession(listener, timer)
+    notifier, timer = RecordingNotifier(), FakeTimer()
+    session = VoiceSession(notifier, timer)
     connection = FakeConnection(humans=humans, failing=failing)
     session.attach(connection, TEXT_CHANNEL)
     for title in titles:
         session.queue.enqueue(make_track(title))
-    return session, connection, timer, listener
+    return session, connection, timer, notifier
 
 
 # Connecting
 
 def test_new_session_is_disconnected():
-    session = VoiceSession(RecordingListener(), FakeTimer())
+    session = VoiceSession(RecordingNotifier(), FakeTimer())
 
     assert session.state == PlaybackState.DISCONNECTED
 
@@ -165,21 +165,21 @@ def test_last_track_ending_starts_idle_timeout_and_keeps_connection():
 
 
 def test_failed_track_is_reported_and_next_track_plays():
-    session, connection, _, listener = attached_session("a", "broken", "c", failing=("broken",))
+    session, connection, _, notifier = attached_session("a", "broken", "c", failing=("broken",))
     asyncio.run(session.start(TEXT_CHANNEL))
 
     asyncio.run(connection.finish())
 
-    assert listener.failed == [("broken", TEXT_CHANNEL)]
+    assert notifier.failed == [("broken", TEXT_CHANNEL)]
     assert connection.played == ["a", "c"]
 
 
 def test_all_tracks_failing_starts_idle_timeout():
-    session, _, timer, listener = attached_session("x", "y", failing=("x", "y"))
+    session, _, timer, notifier = attached_session("x", "y", failing=("x", "y"))
 
     asyncio.run(session.start(TEXT_CHANNEL))
 
-    assert [title for title, _ in listener.failed] == ["x", "y"]
+    assert [title for title, _ in notifier.failed] == ["x", "y"]
     assert session.state == PlaybackState.IDLE
     assert timer.seconds == 600
 
@@ -271,13 +271,13 @@ def test_humans_returning_restores_the_right_timeout():
 
 
 def test_timeout_ends_session_and_notifies_session_channel():
-    session, connection, timer, listener = attached_session("a")
+    session, connection, timer, notifier = attached_session("a")
     asyncio.run(session.start(TEXT_CHANNEL))
     asyncio.run(connection.finish())
 
     asyncio.run(timer.fire())
 
-    assert listener.ended == [(EndReason.IDLE, TEXT_CHANNEL)]
+    assert notifier.ended == [(EndReason.IDLE, TEXT_CHANNEL)]
     assert connection.disconnected
     assert session.state == PlaybackState.DISCONNECTED
 
@@ -285,12 +285,12 @@ def test_timeout_ends_session_and_notifies_session_channel():
 # Ending
 
 def test_end_clears_everything():
-    session, connection, timer, listener = attached_session("a", "b")
+    session, connection, timer, notifier = attached_session("a", "b")
     asyncio.run(session.start(TEXT_CHANNEL))
 
     asyncio.run(session.end(EndReason.STOPPED))
 
-    assert listener.ended == [(EndReason.STOPPED, TEXT_CHANNEL)]
+    assert notifier.ended == [(EndReason.STOPPED, TEXT_CHANNEL)]
     assert connection.disconnected
     assert session.queue.is_empty
     assert session.text_channel_id is None

@@ -56,7 +56,7 @@ class Timer(Protocol):
     def cancel(self) -> None: ...
 
 
-class SessionListener(Protocol):
+class SessionNotifier(Protocol):
     """How the session tells users what happened, in the session text channel."""
 
     async def track_failed(self, track: Track, text_channel_id: int | None) -> None: ...
@@ -66,12 +66,12 @@ class SessionListener(Protocol):
 class VoiceSession:
     """One voice connection with its track queue, text channel lock and timeouts."""
 
-    def __init__(self, listener: SessionListener, timer: Timer):
+    def __init__(self, notifier: SessionNotifier, timer: Timer):
         self.queue = TrackQueue()
         # Where session messages go; commands are only accepted from it while playing or paused
         self.text_channel_id: int | None = None
         self._connection: VoiceConnection | None = None
-        self._listener = listener
+        self._notifier = notifier
         self._timer = timer
 
     @property
@@ -170,7 +170,7 @@ class VoiceSession:
             await connection.disconnect()
 
         logger.info("Voice session ended: reason=%s.", reason)
-        await self._listener.session_ended(reason, text_channel_id)
+        await self._notifier.session_ended(reason, text_channel_id)
 
     async def _play_next(self) -> None:
         while (track := self.queue.advance()) is not None:
@@ -182,7 +182,7 @@ class VoiceSession:
                 await self._connection.play(track, on_end=self.on_track_ended)
             except Exception:
                 logger.exception("Failed to play track '%s'.", track.title)
-                await self._listener.track_failed(track, self.text_channel_id)
+                await self._notifier.track_failed(track, self.text_channel_id)
                 continue
 
             self._timer.cancel()
