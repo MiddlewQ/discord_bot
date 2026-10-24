@@ -21,5 +21,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src ./src
 RUN mkdir -p /usr/src/app/logs
 
-# Run main.py when the container launches
-CMD ["python", "-m", "src.main"]
+# Update yt-dlp on every start, since YouTube changes often break older versions; then run main.py
+CMD ["sh", "-c", "pip install --no-cache-dir -U 'yt-dlp[default]' && python -m src.main"]
