@@ -1,11 +1,11 @@
 import discord
 import asyncio
 from dataclasses import dataclass
-from enum import StrEnum, auto
 from discord.ext import commands
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
 
+from src.bot.admission import CommandRequest, Needs, Reject, check
 from src.bot.playback import AsyncioTimer, DiscordSessionNotifier, DiscordVoiceConnection
 from src.audio.track import Track
 from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
@@ -20,17 +20,35 @@ MAX_TRACK_SECONDS = 1200
 MULTIPLAY_MAX_TRACKS = 8
 
 
+# Replies for rejected commands; WRONG_TEXT_CHANNEL has none on purpose (replies in other channels clutter them)
+REJECT_REPLIES = {
+    Reject.USER_NOT_IN_VOICE: msg.FAIL_USER_NOT_CONNECTED,
+    Reject.BOT_NOT_IN_VOICE: msg.FAIL_BOT_NOT_CONNECTED,
+    Reject.BOT_IN_OTHER_CHANNEL: msg.FAIL_DIFFERENT_CHANNEL,
+    Reject.BOT_BUSY_ELSEWHERE: msg.FAIL_BOT_BUSY_ELSEWHERE,
+}
+
+
 @dataclass(frozen=True)
-class VoiceContext:
-    state: PlaybackState
-    vc: discord.VoiceClient | None
-    user_channel: discord.VoiceChannel | discord.StageChannel | None
+class Admitted:
+    """A command that passed admission, with what its Needs level guarantees."""
 
+    _vc: discord.VoiceClient | None
+    _user_channel: discord.VoiceChannel | discord.StageChannel | None
 
-class VoiceChannelReject(StrEnum):
-    BOT_NOT_CONNECTED  = auto()
-    USER_NOT_CONNECTED = auto()
-    DIFFERENT_VOICE_CHANNEL = auto()
+    @property
+    def vc(self) -> discord.VoiceClient:
+        """The bot's voice client; guaranteed for Needs.SAME_VOICE."""
+        if self._vc is None:
+            raise RuntimeError("No voice client: only Needs.SAME_VOICE guarantees one")
+        return self._vc
+
+    @property
+    def user_channel(self) -> discord.VoiceChannel | discord.StageChannel:
+        """The user's voice channel; guaranteed for Needs.SAME_VOICE and Needs.CAN_CONNECT."""
+        if self._user_channel is None:
+            raise RuntimeError("No user voice channel: Needs.SESSION_CHANNEL does not check voice")
+        return self._user_channel
 
 
 class AudioCog(commands.Cog):
@@ -91,79 +109,39 @@ class AudioCog(commands.Cog):
         self.session.attach(DiscordVoiceConnection(vc), ctx.channel.id)
         return True
 
-    async def reject_invalid_text_channel(self, ctx) -> bool:
-        if self.session.accepts_commands_from(ctx.channel.id):
-            return False
+    async def admit(self, ctx, needs: Needs) -> Admitted | None:
+        """Check whether the command may run here; if not, reply (except in the wrong text channel), log, and return None."""
+        user_voice = ctx.author.voice
+        user_channel = user_voice.channel if user_voice and user_voice.channel else None
+        vc = self.get_vc(ctx.guild)
+        bot_channel = vc.channel if vc is not None else None
 
-        # Only logged, no reply: replying in other text channels clutters them
-        session_channel = self.bot.get_channel(self.session.text_channel_id or 0)
+        reject = check(CommandRequest(
+            needs=needs,
+            author_id=ctx.author.id,
+            text_channel_id=ctx.channel.id,
+            user_voice_channel_id=user_channel.id if user_channel is not None else None,
+            bot_voice_channel_id=bot_channel.id if bot_channel is not None else None,
+            session_state=self.session.state,
+            session_text_channel_id=self.session.text_channel_id,
+        ))
 
-        logger.info(msg.LOG_COMMAND_FAILED_DIFFERENT_TEXT_CHANNEL.format(
+        if reject is None:
+            return Admitted(vc, user_channel)
+
+        logger.info(msg.LOG_COMMAND_REJECTED.format(
             user=ctx.author.name,
             command=ctx.command.name if ctx.command else "unknown",
-            current_channel=ctx.channel.name,
-            session_channel=getattr(session_channel, "name", self.session.text_channel_id),
+            text_channel=ctx.channel.name,
+            reason=reject,
+            user_vc=user_channel.name if user_channel is not None else None,
+            bot_vc=bot_channel.name if bot_channel is not None else None,
         ))
-        return True
 
-    def check_voice_channel(self, voice: VoiceContext) -> VoiceChannelReject | None:
-        if voice.vc is None:
-            return VoiceChannelReject.BOT_NOT_CONNECTED
-
-        if voice.user_channel is None:
-            return VoiceChannelReject.USER_NOT_CONNECTED
-
-        if voice.user_channel != voice.vc.channel:
-            return VoiceChannelReject.DIFFERENT_VOICE_CHANNEL
-
+        if reject in REJECT_REPLIES:
+            reply = REJECT_REPLIES[reject].format(channel=bot_channel.name if bot_channel is not None else "another channel")
+            await ctx.send(embed=discord.Embed(description=reply))
         return None
-
-    async def reject_invalid_voice_channel(self, ctx, voice: VoiceContext) -> bool:
-        error = self.check_voice_channel(voice)
-
-        if error is None:
-            return False
-
-        match error:
-            case VoiceChannelReject.BOT_NOT_CONNECTED:
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-                logger.info(msg.LOG_COMMAND_FAILED_BOT_ABSENT.format(
-                    user=ctx.author.name, 
-                    command=ctx.command.name if ctx.command else "unknown",
-                ))
-
-            case VoiceChannelReject.USER_NOT_CONNECTED:
-                channel = voice.vc.channel.name if voice.vc is not None else "unknown"
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-                logger.info(msg.LOG_COMMAND_FAILED_USER_ABSENT.format(
-                    user=ctx.author.name, 
-                    command=ctx.command.name if ctx.command else "unknown", 
-                    channel=channel,
-                ))
-
-            case VoiceChannelReject.DIFFERENT_VOICE_CHANNEL:
-                user_vc = voice.user_channel.name if voice.user_channel else "unknown"
-                bot_vc = voice.vc.channel.name if voice.vc is not None else "unknown"
-
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_DIFFERENT_CHANNEL))
-                logger.info(msg.LOG_COMMAND_FAILED_DIFFERENT_VOICE_CHANNEL.format(
-                    user=ctx.author.name, 
-                    command=ctx.command.name if ctx.command else "unknown", 
-                    user_vc=user_vc, 
-                    bot_vc=bot_vc,
-                ))
-        
-        return True   
-
-    def get_voice_context(self, ctx) -> VoiceContext:
-        user_voice = ctx.author.voice
-        user_channel: discord.VoiceChannel | discord.StageChannel | None = user_voice.channel if user_voice and user_voice.channel else None
-
-        return VoiceContext(
-            state=self.session.state,
-            vc=self.get_vc(ctx.guild),
-            user_channel=user_channel,
-        )
 
 
     # 3. Embed / yt-dlp helders
@@ -292,28 +270,6 @@ class AudioCog(commands.Cog):
         ), None
 
     # 4. Queueing
-    async def get_queueing_channel(self, ctx) -> discord.VoiceChannel | discord.StageChannel | None:
-        """The user's voice channel if they may queue tracks from it; otherwise reply and return None."""
-        voice = self.get_voice_context(ctx)
-
-        if voice.user_channel is None:
-            logger.info(msg.LOG_PLAY_FAILED_USER_NOT_CONNECTED.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-            return None
-
-        if voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            if voice.vc is None:
-                logger.warning("Playback state was %s but voice client was missing", voice.state)
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-                return None
-
-            if voice.user_channel != voice.vc.channel:
-                await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=voice.vc.channel.name)))
-                logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
-                return None
-
-        return voice.user_channel
-
     async def enqueue_queries(self, ctx, queries: list[str], user_channel) -> tuple[int, bool]:
         """Search, queue and announce each query in turn; start playback on the first track found.
 
@@ -416,48 +372,39 @@ class AudioCog(commands.Cog):
     # 6. Commands
     @commands.command(name="join", aliases=['connect'], help=msg.HELP_MESSAGES['join'], usage=msg.HELP_USAGES['join'])
     async def join(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
+        if (admitted := await self.admit(ctx, Needs.CAN_CONNECT)) is None:
             return
-        
-        voice = self.get_voice_context(ctx)
+
         user = ctx.author
-        
-        if voice.user_channel is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
-            logger.info(msg.LOG_JOIN_FAILED_USER_ABSENT.format(user=user.name))
-            return
-        
+        user_channel = admitted.user_channel
+        vc = self.get_vc(ctx.guild)
         old_channel_name: str | None = None
 
-        if voice.vc is not None:
-            if voice.user_channel == voice.vc.channel:
+        if vc is not None:
+            if vc.channel == user_channel:
                 self.session.on_members_changed()  # restarts the IDLE timeout when idle
                 await ctx.send(embed=discord.Embed(description=msg.JOIN_FAIL_SAME_CHANNEL))
-                logger.info(msg.LOG_JOIN_FAILED_USER_CHANNEL_SAME.format(user=user.name, channel=voice.vc.channel.name))
+                logger.info(msg.LOG_JOIN_FAILED_USER_CHANNEL_SAME.format(user=user.name, channel=vc.channel.name))
                 return
-            if voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-                await ctx.send(embed=discord.Embed(description=msg.JOIN_FAIL_PLAYING_OTHER_CHANNEL))
-                logger.info(msg.LOG_JOIN_FAILED_PLAYBACK_OTHER.format(user=user.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
-                return
-            
-            # Bot is idle in another channel: move
-            old_channel_name = voice.vc.channel.name
+
+            # Bot is idle in another channel (admission rejects it when busy there): move
+            old_channel_name = vc.channel.name
 
 
-        if not await self.connect_session(ctx, voice.user_channel):
+        if not await self.connect_session(ctx, user_channel):
             return
 
         if old_channel_name is None:
-            await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_CONNECTED.format(channel=voice.user_channel.name)))
-            logger.info(msg.LOG_JOIN_CHANNEL_CONNECT.format(user=user.name, channel=voice.user_channel.name))
+            await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_CONNECTED.format(channel=user_channel.name)))
+            logger.info(msg.LOG_JOIN_CHANNEL_CONNECT.format(user=user.name, channel=user_channel.name))
         else: 
-            await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_MOVED.format(channel=voice.user_channel.name)))
-            logger.info(msg.LOG_JOIN_CHANNEL_MOVE.format(user=user.name, old=old_channel_name, new=voice.user_channel.name))
+            await ctx.send(embed=discord.Embed(description=msg.BOT_CHANNEL_MOVED.format(channel=user_channel.name)))
+            logger.info(msg.LOG_JOIN_CHANNEL_MOVE.format(user=user.name, old=old_channel_name, new=user_channel.name))
 
 
     @commands.command(name="play", aliases=["p", "pl"], help=msg.HELP_MESSAGES['play'], usage=msg.HELP_USAGES['play'])
     async def play(self, ctx, *args):
-        if await self.reject_invalid_text_channel(ctx):
+        if (admitted := await self.admit(ctx, Needs.CAN_CONNECT)) is None:
             return
 
         if not args:
@@ -465,26 +412,18 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return
 
-        user_channel = await self.get_queueing_channel(ctx)
-        if user_channel is None:
-            return
-
-        await self.enqueue_queries(ctx, [" ".join(args)], user_channel)
+        await self.enqueue_queries(ctx, [" ".join(args)], admitted.user_channel)
 
 
     @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
     async def multiplay(self, ctx, *args):
-        if await self.reject_invalid_text_channel(ctx):
+        if (admitted := await self.admit(ctx, Needs.CAN_CONNECT)) is None:
             return
 
         if not args:
             logger.info(msg.LOG_MULTIPLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return 
-
-        user_channel = await self.get_queueing_channel(ctx)
-        if user_channel is None:
-            return
 
         searches = [
             search.strip() 
@@ -500,7 +439,7 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_MAX_TRACKS.format(number=MULTIPLAY_MAX_TRACKS)))
             searches = searches[:MULTIPLAY_MAX_TRACKS]
 
-        added, stopped = await self.enqueue_queries(ctx, searches, user_channel)
+        added, stopped = await self.enqueue_queries(ctx, searches, admitted.user_channel)
 
         # Only summarise when a search failed; every success already has its own line,
         # and an early stop was already announced (stop, disconnect or connection error)
@@ -512,21 +451,18 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="pause", help=msg.HELP_MESSAGES["pause"], usage=msg.HELP_USAGES["pause"])
     async def pause(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
+        if await self.admit(ctx, Needs.SAME_VOICE) is None:
             return
 
-        voice = self.get_voice_context(ctx)
         user = ctx.author
+        state = self.session.state
 
-        if await self.reject_invalid_voice_channel(ctx, voice):
-            return
-            
-        if voice.state == PlaybackState.IDLE:
+        if state == PlaybackState.IDLE:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PLAYING))
             logger.info(msg.LOG_PAUSE_FAILED_NOT_PLAYING.format(user=user.name))
             return 
 
-        if voice.state == PlaybackState.PAUSED:
+        if state == PlaybackState.PAUSED:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_ALREADY_PAUSED))
             logger.info(msg.LOG_PAUSE_FAILED_ALREADY_PAUSED.format(user=user.name)) 
             return 
@@ -539,20 +475,17 @@ class AudioCog(commands.Cog):
 
     @commands.command(name = "resume", aliases=["r"], help=msg.HELP_MESSAGES['resume'], usage=msg.HELP_USAGES['resume'])
     async def resume(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
+        if await self.admit(ctx, Needs.SAME_VOICE) is None:
             return
 
-        voice = self.get_voice_context(ctx)
+        state = self.session.state
 
-        if await self.reject_invalid_voice_channel(ctx, voice):
-            return
-
-        if voice.state == PlaybackState.PLAYING:
+        if state == PlaybackState.PLAYING:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_ALREADY_PLAYING))
             logger.info(msg.LOG_RESUME_FAILED_ALREADY_PLAYING.format(user=ctx.author.name))
             return
 
-        if voice.state != PlaybackState.PAUSED:
+        if state != PlaybackState.PAUSED:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PAUSED))
             logger.info(msg.LOG_RESUME_FAILED_NOT_PAUSED.format(user=ctx.author.name))
             return 
@@ -565,18 +498,13 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="skip", aliases=["s"], help=msg.HELP_MESSAGES['skip'], usage=msg.HELP_USAGES['skip'])
     async def skip(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
+        if (admitted := await self.admit(ctx, Needs.SAME_VOICE)) is None:
             return
 
         user = ctx.author
-        voice = self.get_voice_context(ctx)
 
-        if await self.reject_invalid_voice_channel(ctx, voice):
-            return
-        assert voice.vc is not None
-
-        if voice.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or self.session.queue.current is None:
-            logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user.name, channel=voice.vc.channel.name))
+        if self.session.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or self.session.queue.current is None:
+            logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user.name, channel=admitted.vc.channel.name))
             await ctx.send(embed=discord.Embed(description=msg.SKIP_FAIL_NOTHING_TO_SKIP))
             return
 
@@ -590,7 +518,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="queue", aliases=["q"], help=msg.HELP_MESSAGES['queue'], usage=msg.HELP_USAGES['queue'])
     async def queue(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
+        if await self.admit(ctx, Needs.SESSION_CHANNEL) is None:
             return
 
         queue = self.session.queue
@@ -647,7 +575,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="playing", aliases=["np"], help=msg.HELP_MESSAGES['playing'], usage=msg.HELP_USAGES['playing'])
     async def playing(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
+        if await self.admit(ctx, Needs.SESSION_CHANNEL) is None:
             return
 
         track = self.session.queue.current
@@ -667,12 +595,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="remove", aliases=["rm"], help=msg.HELP_MESSAGES['remove'], usage=msg.HELP_USAGES['remove'])
     async def remove(self, ctx, *args):
-        if await self.reject_invalid_text_channel(ctx):
-            return        
-        
-        voice = self.get_voice_context(ctx)
-
-        if await self.reject_invalid_voice_channel(ctx, voice):
+        if await self.admit(ctx, Needs.SAME_VOICE) is None:
             return
 
         queue = self.session.queue
@@ -712,12 +635,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="clear", aliases=["c", "bin"], help=msg.HELP_MESSAGES['clear'], usage=msg.HELP_USAGES['clear'])
     async def clear(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
-            return
-
-        voice = self.get_voice_context(ctx)
-
-        if await self.reject_invalid_voice_channel(ctx, voice):
+        if await self.admit(ctx, Needs.SAME_VOICE) is None:
             return
 
         if self.session.queue.is_empty:
@@ -733,16 +651,10 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="stop", aliases=["disconnect"], help=msg.HELP_MESSAGES['stop'], usage=msg.HELP_USAGES['stop'])
     async def stop(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
+        if (admitted := await self.admit(ctx, Needs.SAME_VOICE)) is None:
             return
 
-        voice = self.get_voice_context(ctx)
-
-        if await self.reject_invalid_voice_channel(ctx, voice):
-            return
-        assert voice.vc is not None
-
-        channel_name = voice.vc.channel.name
+        channel_name = admitted.vc.channel.name
         await self.session.end(EndReason.STOPPED)
 
         logger.info(msg.LOG_STOP_EXECUTED.format(channel=channel_name, user=ctx.author.name))
@@ -750,7 +662,7 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], usage=msg.HELP_USAGES['status'])
     async def status(self, ctx):
-        if await self.reject_invalid_text_channel(ctx):
+        if await self.admit(ctx, Needs.SESSION_CHANNEL) is None:
             return
 
         queue = self.session.queue

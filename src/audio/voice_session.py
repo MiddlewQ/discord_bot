@@ -78,7 +78,7 @@ class VoiceSession:
 
     def __init__(self, notifier: SessionNotifier, timer: Timer):
         self.queue = TrackQueue()
-        # Where session messages go; commands are only accepted from it while playing or paused
+        # Where session messages go; admission only accepts commands from it while connected
         self.text_channel_id: int | None = None
         self._connection: VoiceConnection | None = None
         self._notifier = notifier
@@ -104,12 +104,6 @@ class VoiceSession:
 
         if self.state == PlaybackState.IDLE:
             self._start_timeout(EndReason.IDLE)
-
-    def accepts_commands_from(self, channel_id: int) -> bool:
-        """Locked to the session text channel while connected; a disconnected bot takes commands anywhere."""
-        if self.state == PlaybackState.DISCONNECTED or self.text_channel_id is None:
-            return True
-        return channel_id == self.text_channel_id
 
     async def start(self, text_channel_id: int) -> None:
         """Play the next queued track, unless something is already playing or paused."""

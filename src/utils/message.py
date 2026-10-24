@@ -43,6 +43,7 @@ FAIL_BOT_NOT_CONNECTED              = ":gear: I am not connected to a voice chan
 FAIL_USER_NOT_CONNECTED             = ":gear: You need to be connected to a voice channel."
 FAIL_BOT_CONNECT_TO_VOICE_CHANNEL   = ":gear: Could not connect to voice channel."
 FAIL_DIFFERENT_CHANNEL              = ":gear: You need to be in the same voice channel as me."
+FAIL_BOT_BUSY_ELSEWHERE             = ":gear: I am already playing audio in {channel}. Join that voice channel to use me."
 
 # Join
 JOIN_FAIL_SAME_CHANNEL              = ":gear: I am already in this voice channel."
@@ -119,6 +120,7 @@ LOG_HELP_EXECUTED_CMD               = "Help command executed: User '{user}' ran 
 LOG_HELP_FAILED_INVALID_CMD         = "Help command failed: User '{user}' attempted to run help for an invalid command '{command}'."
 
 # General
+LOG_COMMAND_REJECTED                = "Command rejected: User '{user}' ran '{command}' in '{text_channel}': {reason}. User voice: '{user_vc}', bot voice: '{bot_vc}'."
 LOG_COMMAND_FAILED_BOT_ABSENT       = "Command failed: User '{user}' attempted to run '{command}', but the bot is not connected to a voice channel."
 LOG_COMMAND_FAILED_USER_ABSENT      = "Command failed: User '{user}' attempted to run '{command}' while not connected to '{channel}'."
 LOG_COMMAND_FAILED_DIFFERENT_VOICE_CHANNEL = "Command failed: User '{user}' attempted to run '{command}' from '{user_vc}', but the bot is in '{bot_vc}'."
