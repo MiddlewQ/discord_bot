@@ -504,7 +504,6 @@ class AudioCog(commands.Cog):
 
         if await self.reject_invalid_voice_channel(ctx, voice):
             return
-        assert voice.vc is not None
             
         if voice.state == PlaybackState.IDLE:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PLAYING))
@@ -531,7 +530,6 @@ class AudioCog(commands.Cog):
 
         if await self.reject_invalid_voice_channel(ctx, voice):
             return
-        assert voice.vc is not None
 
         if voice.state == PlaybackState.PLAYING:
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_ALREADY_PLAYING))
@@ -700,7 +698,6 @@ class AudioCog(commands.Cog):
 
         if await self.reject_invalid_voice_channel(ctx, voice):
             return
-        assert voice.vc is not None
 
         if self.session.queue.is_empty:
             await ctx.send(embed=discord.Embed(description=msg.QUEUE_EMPTY))
