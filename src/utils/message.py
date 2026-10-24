@@ -141,10 +141,7 @@ LOG_PLAY_TRACK_QUEUED               = "Play command executed: Track '{title}' ad
 LOG_PLAY_FAILED_USER_NOT_CONNECTED  = "Play command failed: User '{user}' is not connected to a voice channel."
 LOG_PLAY_FAILED_USER_CHANNEL_OTHER  = "Play command failed: User '{user}' tried to add track from '{user_vc}' while the bot is already playing in '{bot_vc}'."
 LOG_PLAY_FAILED_NO_ARGS             = "Play command failed: No arguments provided by '{user}'."
-LOG_PLAY_FAILED_NOT_FOUND           = "Play command failed: No track found for query '{query}' by '{user}'."
 LOG_PLAY_FAILED_TOO_LONG            = "Play command failed: Track for query '{query}' requested by '{user}' is too long."
-LOG_PLAY_NEXT_REQUEST_EXECUTED      = "Play next command executed: Now playing '{title}'."
-LOG_PLAY_NEXT_IGNORE_ALREADY_PLAYING = "start_playback ignored because audio is already active: {state}."
 
 # Multiplay
 LOG_MULTIPLAY_EXECUTED              = "Multiplay command executed: {number_of_tracks} tracks added to the queue."
@@ -181,12 +178,6 @@ LOG_SKIP_FAILED_NO_AUDIO            = "Skip command failed: User '{user}' attemp
 
 # Text channel/session
 LOG_COMMAND_FAILED_DIFFERENT_TEXT_CHANNEL = "Command failed: User '{user}' attempted to run command '{command}' in '{current_channel}', but the session text channel is '{session_channel}'."
-
-# Timeout
-LOG_TIMEOUT_START                   = "Starting timeout: reason={reason}, seconds={seconds}."
-LOG_TIMEOUT_NO_HUMANS               = "Timeout executed: Leaving voice channel '{channel}' because no humans remain."
-LOG_TIMEOUT_PAUSED                  = "Timeout executed: Leaving voice channel '{channel}' because playback was paused too long."
-LOG_TIMEOUT_IDLE                    = "Timeout executed: Leaving voice channel '{channel}' because nothing has been playing for a while."
 
 
 # Pagination 
