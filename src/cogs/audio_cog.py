@@ -695,13 +695,3 @@ class AudioCog(commands.Cog):
             color=discord.Color.blue()
         )
         await ctx.send(embed=embed)
-
-
-    @commands.command(name="tone")
-    async def tone(self, ctx):
-        """Temporary: play a 10 s test beep without YouTube."""
-        channel = ctx.author.voice.channel
-        vc = await self.ensure_voice_client(channel)
-        vc.play(discord.FFmpegPCMAudio("sine=frequency=440:duration=10", before_options="-f lavfi"))
-        await ctx.send("Playing test tone")
-
