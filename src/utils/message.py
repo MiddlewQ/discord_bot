@@ -118,6 +118,7 @@ LOG_HELP_EXECUTED_CMD               = "Help command executed: User '{user}' ran 
 LOG_HELP_FAILED_INVALID_CMD         = "Help command failed: User '{user}' attempted to run help for an invalid command '{command}'."
 
 # General
+LOG_LEFT_LEFTOVER_VOICE             = "Startup: Left voice channel '{channel}' in '{guild}', left over from a previous run."
 LOG_COMMAND_REJECTED                = "Command rejected: User '{user}' ran '{command}' in '{text_channel}': {reason}. User voice: '{user_vc}', bot voice: '{bot_vc}'."
 
 # Join

@@ -341,6 +341,19 @@ class AudioCog(commands.Cog):
 
     # 5. Listeners
     @commands.Cog.listener()
+    async def on_ready(self):
+        # A crash or hard kill can leave the bot shown in a voice channel without a connection
+        # to it; tell Discord it left. on_ready also runs after reconnects, where the voice
+        # client still exists, so a live session is never touched.
+        for guild in self.bot.guilds:
+            voice = guild.me.voice
+            if voice is None or voice.channel is None or guild.voice_client is not None:
+                continue
+
+            logger.info(msg.LOG_LEFT_LEFTOVER_VOICE.format(channel=voice.channel.name, guild=guild.name))
+            await guild.change_voice_state(channel=None)
+
+    @commands.Cog.listener()
     async def on_command(self, ctx):
         logger.info(f"{ctx.command.name.capitalize()} command requested: User {ctx.author.name} in {ctx.channel.name}")
 
