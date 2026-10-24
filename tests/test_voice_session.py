@@ -1,7 +1,7 @@
 import asyncio
 
 from src.audio.track import Track
-from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
+from src.audio.voice_session import EndReason, PlaybackError, PlaybackState, VoiceSession
 
 TEXT_CHANNEL = 100
 OTHER_CHANNEL = 200
@@ -34,7 +34,7 @@ class FakeConnection:
 
     async def play(self, track, on_end) -> None:
         if track.title in self.failing:
-            raise RuntimeError("no stream URL")
+            raise PlaybackError("refused")
         self.played.append(track.title)
         self.playing, self.paused = True, False
         self._on_end = on_end
@@ -52,12 +52,12 @@ class FakeConnection:
         self.disconnected = True
         self.playing, self.paused = False, False
 
-    async def finish(self) -> None:
+    async def finish(self, failure: str | None = None) -> None:
         """Simulate the current track ending, like discord calling the after= callback."""
         self.playing, self.paused = False, False
         on_end, self._on_end = self._on_end, None
         if on_end is not None:
-            await on_end()
+            await on_end(failure)
 
 
 class FakeTimer:
@@ -84,11 +84,11 @@ class FakeTimer:
 
 class RecordingNotifier:
     def __init__(self):
-        self.failed: list[tuple[str, int | None]] = []
+        self.failed: list[tuple[str, str | None, int | None]] = []
         self.ended: list[tuple[EndReason, int | None]] = []
 
-    async def track_failed(self, track, text_channel_id) -> None:
-        self.failed.append((track.title, text_channel_id))
+    async def track_failed(self, track, reason, text_channel_id) -> None:
+        self.failed.append((track.title, reason, text_channel_id))
 
     async def session_ended(self, reason, text_channel_id) -> None:
         self.ended.append((reason, text_channel_id))
@@ -170,8 +170,39 @@ def test_failed_track_is_reported_and_next_track_plays():
 
     asyncio.run(connection.finish())
 
-    assert notifier.failed == [("broken", TEXT_CHANNEL)]
+    assert notifier.failed == [("broken", "refused", TEXT_CHANNEL)]
     assert connection.played == ["a", "c"]
+
+
+def test_unexpected_error_is_reported_without_a_reason():
+    session, connection, _, notifier = attached_session("a")
+
+    async def crash(track, on_end):
+        raise ValueError("bug")
+
+    connection.play = crash
+    asyncio.run(session.start(TEXT_CHANNEL))
+
+    assert notifier.failed == [("a", None, TEXT_CHANNEL)]
+
+
+def test_failure_after_start_is_reported_and_next_track_plays():
+    session, connection, _, notifier = attached_session("a", "b")
+    asyncio.run(session.start(TEXT_CHANNEL))
+
+    asyncio.run(connection.finish(failure="decode error"))
+
+    assert notifier.failed == [("a", "decode error", TEXT_CHANNEL)]
+    assert connection.played == ["a", "b"]
+
+
+def test_normal_end_is_not_reported_as_failure():
+    session, connection, _, notifier = attached_session("a", "b")
+    asyncio.run(session.start(TEXT_CHANNEL))
+
+    asyncio.run(connection.finish())
+
+    assert notifier.failed == []
 
 
 def test_all_tracks_failing_starts_idle_timeout():
@@ -179,7 +210,7 @@ def test_all_tracks_failing_starts_idle_timeout():
 
     asyncio.run(session.start(TEXT_CHANNEL))
 
-    assert [title for title, _ in notifier.failed] == ["x", "y"]
+    assert [title for title, _, _ in notifier.failed] == ["x", "y"]
     assert session.state == PlaybackState.IDLE
     assert timer.seconds == 600
 

@@ -341,8 +341,11 @@ class AudioCog(commands.Cog):
                         return added, True
 
                 self.queue_track(track)
-                await ctx.send(embed=self.build_now_playing_embed(track, ctx.author))
                 await self.session.start(ctx.channel.id)
+
+                # If it couldn't start, the session already posted why
+                if self.session.queue.current is track:
+                    await ctx.send(embed=self.build_now_playing_embed(track, ctx.author))
             else:
                 position = self.queue_track(track)
                 await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))

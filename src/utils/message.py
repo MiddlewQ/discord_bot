@@ -50,7 +50,14 @@ JOIN_FAIL_PLAYING_OTHER_CHANNEL     = ":gear: I am already playing music in anot
 
 # Play / Playing / Multiplay
 PLAYING                             = ":gear: **Currently playing:** [{title}]({webpage_url})"
-FAIL_PLAYBACK                       = ":gear: Error playing track."
+FAIL_PLAYBACK                       = ":gear: Could not play **{title}**: {reason}"
+
+# Why a track could not be played: used as {reason} in FAIL_PLAYBACK
+PLAYBACK_FAIL_FORBIDDEN             = "YouTube refused the stream (403 Forbidden)."
+PLAYBACK_FAIL_UNAVAILABLE           = "The video is unavailable."
+PLAYBACK_FAIL_DECODE                = "The audio could not be decoded."
+PLAYBACK_FAIL_TIMEOUT               = "The stream did not start in time."
+PLAYBACK_FAIL_UNKNOWN               = "Playback failed."
 PLAY_FAIL_NO_ARGS                   = ":gear: No arguments were provided. Please specify a search term or URL."
 PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL  = ":gear: I am already playing audio in {channel}. Join that voice channel to queue tracks."
 

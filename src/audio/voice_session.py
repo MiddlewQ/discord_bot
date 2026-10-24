@@ -32,6 +32,10 @@ TIMEOUT_SECONDS = {
 }
 
 
+class PlaybackError(Exception):
+    """Raised by a VoiceConnection when a track can't be played; the message is shown to users."""
+
+
 class VoiceConnection(Protocol):
     """What the session needs from a connected voice client."""
 
@@ -39,8 +43,12 @@ class VoiceConnection(Protocol):
     def is_paused(self) -> bool: ...
     def human_count(self) -> int: ...
 
-    async def play(self, track: Track, on_end: Callable[[], Coroutine[Any, Any, None]]) -> None:
-        """Start streaming the track; raise if it can't start. Await on_end when it stops."""
+    async def play(self, track: Track, on_end: Callable[[str | None], Coroutine[Any, Any, None]]) -> None:
+        """Start streaming the track; raise PlaybackError if it can't start.
+
+        Await on_end when it stops: on_end(None) for a normal end (finished, skipped, stopped),
+        on_end(reason) if playback failed after it started.
+        """
         ...
 
     def pause(self) -> None: ...
@@ -59,7 +67,9 @@ class Timer(Protocol):
 class SessionNotifier(Protocol):
     """How the session tells users what happened, in the session text channel."""
 
-    async def track_failed(self, track: Track, text_channel_id: int | None) -> None: ...
+    async def track_failed(self, track: Track, reason: str | None, text_channel_id: int | None) -> None:
+        """reason is a user-facing explanation, or None when it is unknown."""
+        ...
     async def session_ended(self, reason: EndReason, text_channel_id: int | None) -> None: ...
 
 
@@ -109,7 +119,11 @@ class VoiceSession:
         self.text_channel_id = text_channel_id
         await self._play_next()
 
-    async def on_track_ended(self) -> None:
+    async def on_track_ended(self, failure: str | None = None) -> None:
+        if failure is not None and self.queue.current is not None:
+            logger.warning("Track '%s' stopped playing: %s", self.queue.current.title, failure)
+            await self._notifier.track_failed(self.queue.current, failure, self.text_channel_id)
+
         await self._play_next()
 
     def pause(self) -> None:
@@ -202,9 +216,13 @@ class VoiceSession:
 
             try:
                 await self._connection.play(track, on_end=self.on_track_ended)
+            except PlaybackError as error:
+                logger.warning("Could not play track '%s': %s", track.title, error)
+                await self._notifier.track_failed(track, str(error), self.text_channel_id)
+                continue
             except Exception:
                 logger.exception("Failed to play track '%s'.", track.title)
-                await self._notifier.track_failed(track, self.text_channel_id)
+                await self._notifier.track_failed(track, None, self.text_channel_id)
                 continue
 
             self._timer.cancel()
