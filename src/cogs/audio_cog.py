@@ -359,6 +359,8 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="play", aliases=["p", "pl"], help=msg.HELP_MESSAGES['play'], usage=msg.HELP_USAGES['play'])
     async def play(self, ctx, *args):
+        if await self.reject_invalid_text_channel(ctx):
+            return
 
         if not args:
             logger.info(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
@@ -380,9 +382,6 @@ class AudioCog(commands.Cog):
             should_start_after_queue = True
             should_connect_or_move = voice.vc is None or voice.vc.channel != voice.user_channel
         elif voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            if await self.reject_invalid_text_channel(ctx):
-                return
-
             if voice.vc is None:
                 logger.warning("Playback state was %s but voice client was missing", voice.state)
                 await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
@@ -575,7 +574,9 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="queue", aliases=["q"], help=msg.HELP_MESSAGES['queue'], usage=msg.HELP_USAGES['queue'])
     async def queue(self, ctx):
-        
+        if await self.reject_invalid_text_channel(ctx):
+            return
+
         queue = self.session.queue
 
         if queue.is_empty:
@@ -630,6 +631,9 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="playing", aliases=["np"], help=msg.HELP_MESSAGES['playing'], usage=msg.HELP_USAGES['playing'])
     async def playing(self, ctx):
+        if await self.reject_invalid_text_channel(ctx):
+            return
+
         track = self.session.queue.current
 
         if track is None:
@@ -730,6 +734,9 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="status", aliases=["stat"], help=msg.HELP_MESSAGES['status'], usage=msg.HELP_USAGES['status'])
     async def status(self, ctx):
+        if await self.reject_invalid_text_channel(ctx):
+            return
+
         queue = self.session.queue
         tracks = [track.title for track in queue.upcoming]
 

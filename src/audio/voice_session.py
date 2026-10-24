@@ -93,9 +93,10 @@ class VoiceSession:
             self._start_timeout(EndReason.IDLE)
 
     def accepts_commands_from(self, channel_id: int) -> bool:
-        if self.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+        """Locked to the session text channel while connected; a disconnected bot takes commands anywhere."""
+        if self.state == PlaybackState.DISCONNECTED or self.text_channel_id is None:
             return True
-        return self.text_channel_id is None or channel_id == self.text_channel_id
+        return channel_id == self.text_channel_id
 
     async def start(self, text_channel_id: int) -> None:
         """Play the next queued track, unless something is already playing or paused."""

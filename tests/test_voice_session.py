@@ -234,14 +234,32 @@ def test_clear_while_idle_starts_idle_timeout():
 
 # Text channel lock
 
-def test_commands_only_accepted_from_session_channel_while_playing():
-    session, _, _, _ = attached_session("a")
+def test_disconnected_session_accepts_commands_from_any_channel():
+    session = VoiceSession(RecordingNotifier(), FakeTimer())
+
     assert session.accepts_commands_from(OTHER_CHANNEL)
 
+
+def test_commands_only_accepted_from_session_channel_while_idle():
+    session, _, _, _ = attached_session()
+
+    assert session.accepts_commands_from(TEXT_CHANNEL)
+    assert not session.accepts_commands_from(OTHER_CHANNEL)
+
+
+def test_commands_only_accepted_from_session_channel_while_playing():
+    session, _, _, _ = attached_session("a")
     asyncio.run(session.start(TEXT_CHANNEL))
 
     assert session.accepts_commands_from(TEXT_CHANNEL)
     assert not session.accepts_commands_from(OTHER_CHANNEL)
+
+
+def test_ended_session_accepts_commands_from_any_channel():
+    session, _, _, _ = attached_session("a")
+    asyncio.run(session.end(EndReason.STOPPED))
+
+    assert session.accepts_commands_from(OTHER_CHANNEL)
 
 
 # Timeouts
