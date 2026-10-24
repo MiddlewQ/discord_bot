@@ -70,6 +70,7 @@ class AudioCog(commands.Cog):
         if self.session.accepts_commands_from(ctx.channel.id):
             return False
 
+        # Only logged, no reply: replying in other text channels clutters them
         session_channel = self.bot.get_channel(self.session.text_channel_id or 0)
 
         logger.info(msg.LOG_COMMAND_FAILED_DIFFERENT_TEXT_CHANNEL.format(

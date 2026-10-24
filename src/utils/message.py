@@ -43,7 +43,6 @@ FAIL_BOT_NOT_CONNECTED              = ":gear: I am not connected to a voice chan
 FAIL_USER_NOT_CONNECTED             = ":gear: You need to be connected to a voice channel."
 FAIL_BOT_CONNECT_TO_VOICE_CHANNEL   = ":gear: Could not connect to voice channel."
 FAIL_DIFFERENT_CHANNEL              = ":gear: You need to be in the same voice channel as me."
-FAIL_DIFFERENT_TEXT_CHANNEL         = ":gear: You need to use the same text channel that started this session."
 
 # Join
 JOIN_FAIL_SAME_CHANNEL              = ":gear: I am already in this voice channel."
