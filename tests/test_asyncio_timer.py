@@ -1,6 +1,6 @@
 import asyncio
 
-from src.cogs.discord_playback import AsyncioTimer
+from src.bot.playback import AsyncioTimer
 
 
 def test_callback_runs_after_delay():

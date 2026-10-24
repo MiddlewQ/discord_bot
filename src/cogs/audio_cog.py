@@ -1,11 +1,12 @@
 import discord
 import asyncio
+from dataclasses import dataclass
+from enum import StrEnum, auto
 from discord.ext import commands
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
 
-from .audio_types import VoiceChannelReject, VoiceContext
-from .discord_playback import AsyncioTimer, DiscordSessionNotifier, DiscordVoiceConnection
+from src.bot.playback import AsyncioTimer, DiscordSessionNotifier, DiscordVoiceConnection
 from src.audio.track import Track
 from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
 from src.utils.logging_config import *
@@ -17,6 +18,20 @@ logger = logging.getLogger("audio")
 
 MAX_TRACK_SECONDS = 1200
 MULTIPLAY_MAX_TRACKS = 8
+
+
+@dataclass(frozen=True)
+class VoiceContext:
+    state: PlaybackState
+    vc: discord.VoiceClient | None
+    user_channel: discord.VoiceChannel | discord.StageChannel | None
+
+
+class VoiceChannelReject(StrEnum):
+    BOT_NOT_CONNECTED  = auto()
+    USER_NOT_CONNECTED = auto()
+    DIFFERENT_VOICE_CHANNEL = auto()
+
 
 class AudioCog(commands.Cog):
 
