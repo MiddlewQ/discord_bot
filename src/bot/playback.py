@@ -28,6 +28,7 @@ END_MESSAGES = {
     EndReason.PAUSED: msg.TIMEOUT_PAUSED,
     EndReason.STOPPED: msg.STOP_BY_USER,
     EndReason.DISCONNECTED: msg.DISCONNECTED_FROM_VOICE,
+    EndReason.SHUTDOWN: msg.SHUTTING_DOWN,
 }
 
 

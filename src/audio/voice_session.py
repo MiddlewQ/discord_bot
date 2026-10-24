@@ -23,6 +23,7 @@ class EndReason(StrEnum):
     PAUSED = auto()
     STOPPED = auto()
     DISCONNECTED = auto()
+    SHUTDOWN = auto()
 
 
 TIMEOUT_SECONDS = {

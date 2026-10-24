@@ -106,6 +106,7 @@ TIMEOUT_IDLE                        = ":gear: Leaving voice because nothing has 
 
 # External/session issues
 DISCONNECTED_FROM_VOICE             = ":gear: I was disconnected from voice. Queue cleared."
+SHUTTING_DOWN                       = ":gear: Shutting down. Queue cleared."
 
 
 # Logger messages

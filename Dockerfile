@@ -22,4 +22,5 @@ COPY src ./src
 RUN mkdir -p /usr/src/app/logs
 
 # Update yt-dlp on every start, since YouTube changes often break older versions; then run main.py
-CMD ["sh", "-c", "pip install --no-cache-dir -U 'yt-dlp[default]' && python -m src.main"]
+# exec makes python PID 1, so it receives Docker's stop signal (SIGTERM) instead of sh swallowing it
+CMD ["sh", "-c", "pip install --no-cache-dir -U 'yt-dlp[default]' && exec python -m src.main"]

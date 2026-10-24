@@ -71,6 +71,11 @@ class AudioCog(commands.Cog):
     async def cog_check(self, ctx: commands.Context) -> bool:
         return ctx.guild is not None
 
+    # bot.close() removes the cogs first, so this still runs while connected to Discord
+    async def cog_unload(self) -> None:
+        if self.session.state != PlaybackState.DISCONNECTED:
+            await self.session.end(EndReason.SHUTDOWN)
+
     # Timeouts are held while any command runs, so the bot never leaves mid-command
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
         self.session.begin_request()
