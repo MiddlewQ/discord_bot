@@ -49,7 +49,6 @@ JOIN_FAIL_SAME_CHANNEL              = ":gear: I am already in this voice channel
 JOIN_FAIL_PLAYING_OTHER_CHANNEL     = ":gear: I am already playing music in another channel."
 
 # Play / Playing / Multiplay
-START_PLAYBACK                      = ":gear: **Starting:** [{title}]({webpage_url})..."
 PLAYING                             = ":gear: **Currently playing:** [{title}]({webpage_url})"
 FAIL_PLAYBACK                       = ":gear: Error playing track."
 PLAY_FAIL_NO_ARGS                   = ":gear: No arguments were provided. Please specify a search term or URL."

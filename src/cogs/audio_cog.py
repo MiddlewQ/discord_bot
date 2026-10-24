@@ -146,33 +146,41 @@ class AudioCog(commands.Cog):
 
     # 3. Embed / yt-dlp helders
     def build_queued_track_embed(self, track: Track, position: int, requester):
+        """Card posted when a track is queued behind others; styled like the Now playing card."""
         embed = discord.Embed(
-            title="",
+            title=track.title,
+            url=track.webpage_url,
             color=discord.Color.blue(),
-            type='rich'
         )
+        embed.add_field(name="Length", value=format_track_length(track.duration), inline=True)
+        # Counts the full length of the current track, not the time left in it, so it is an estimate
+        embed.add_field(name="Starts in", value=format_wait(self.session.queue.time_until(position)), inline=True)
+        # Keep the number plain so the columns line up across cards; "up next" goes in the header
+        embed.add_field(name="Position", value=f"#{position}", inline=True)
         bot_user = self.bot.user
         icon_url = bot_user.display_avatar.url if bot_user is not None else None
-        time_until_played = self.session.queue.time_until(position)
-        fields = [
-            # Name, value, inline
-            ("Track", f"[{track.title}]({track.webpage_url})", False),
-            ("", "", False),
-            ("Estimated time until played", f"{seconds_to_time_format(time_until_played)}", True),
-            ("Track length", f"{seconds_to_time_format(track.duration)}", True),
-            ("", "", True),
-            ("Position in upcoming", f"{position}", True),
-            ("Position in queue", f"{position + 1}", True),  # also counts the current track
-            ("", "", True)
-        ]
 
-        for name, val, inline in fields:
-            embed.add_field(name=name, value=val, inline=inline)   
-
-        embed.set_author(icon_url=icon_url, name="Added track")
+        embed.set_author(icon_url=icon_url, name="Added to queue · up next" if position == 1 else "Added to queue")
         if track.thumbnail:
             embed.set_thumbnail(url=track.thumbnail)
-        embed.set_footer(icon_url=requester.avatar.url, text=f"requested by {str(requester).capitalize()}") 
+        embed.set_footer(icon_url=requester.display_avatar.url, text=f"requested by {str(requester).capitalize()}")
+        return embed
+
+    def build_now_playing_embed(self, track: Track, requester):
+        """Card posted when a requested track starts right away; styled like the Added to queue card."""
+        embed = discord.Embed(
+            title=track.title,
+            url=track.webpage_url,
+            color=discord.Color.blue(),
+        )
+        embed.add_field(name="Length", value=format_track_length(track.duration), inline=True)
+        bot_user = self.bot.user
+        icon_url = bot_user.display_avatar.url if bot_user is not None else None
+
+        embed.set_author(icon_url=icon_url, name="Now playing")
+        if track.thumbnail:
+            embed.set_thumbnail(url=track.thumbnail)
+        embed.set_footer(icon_url=requester.display_avatar.url, text=f"requested by {str(requester).capitalize()}")
         return embed
 
     async def search_youtube(self, query: str) -> tuple[Track | None, str | None]:
@@ -300,7 +308,7 @@ class AudioCog(commands.Cog):
                         return added
 
                 self.queue_track(track)
-                await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=track.title, webpage_url=track.webpage_url)))
+                await ctx.send(embed=self.build_now_playing_embed(track, ctx.author))
                 await self.session.start(ctx.channel.id)
             else:
                 position = self.queue_track(track)
