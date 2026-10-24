@@ -324,3 +324,72 @@ def test_track_ending_after_session_ended_plays_nothing():
 
     assert connection.played == ["a"]
     assert not timer.running
+
+
+
+# Commands working on the session
+
+def test_request_holds_the_timeout_until_it_finishes():
+    session, _, timer, _ = attached_session()
+    assert timer.seconds == 600
+
+    session.begin_request()
+    assert not timer.running
+    session.clear()  # would normally restart the IDLE timeout
+    assert not timer.running
+
+    session.finish_request()
+    assert timer.seconds == 600
+
+
+def test_request_that_starts_playback_leaves_no_timeout():
+    session, _, timer, _ = attached_session("a")
+
+    session.begin_request()
+    asyncio.run(session.start(TEXT_CHANNEL))
+    session.finish_request()
+
+    assert session.state == PlaybackState.PLAYING
+    assert not timer.running
+
+
+def test_request_while_paused_restarts_paused_timeout():
+    session, _, timer, _ = attached_session("a")
+    asyncio.run(session.start(TEXT_CHANNEL))
+    session.pause()
+
+    session.begin_request()
+    session.finish_request()
+
+    assert timer.seconds == 1800
+
+
+def test_overlapping_requests_restart_timeout_only_after_the_last():
+    session, _, timer, _ = attached_session()
+
+    session.begin_request()
+    session.begin_request()
+    session.finish_request()
+    assert not timer.running
+
+    session.finish_request()
+    assert timer.seconds == 600
+
+
+def test_request_ending_the_session_leaves_no_timeout():
+    session, _, timer, _ = attached_session("a")
+
+    session.begin_request()
+    asyncio.run(session.end(EndReason.STOPPED))
+    session.finish_request()
+
+    assert not timer.running
+
+
+def test_end_count_changes_when_the_session_ends():
+    session, _, _, _ = attached_session("a")
+    before = session.end_count
+
+    asyncio.run(session.end(EndReason.STOPPED))
+
+    assert session.end_count != before

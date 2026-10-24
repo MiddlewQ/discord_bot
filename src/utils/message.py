@@ -144,6 +144,7 @@ LOG_PLAY_FAILED_TOO_LONG            = "Play command failed: Track for query '{qu
 # Multiplay
 LOG_MULTIPLAY_EXECUTED              = "Multiplay command executed: Added {added} of {requested} tracks for '{user}'."
 LOG_MULTIPLAY_FAILED_NO_ARGS        = "Multiplay command failed: User '{user}' provided no arguments."
+LOG_QUEUEING_STOPPED_SESSION_ENDED  = "Queueing stopped: The voice session ended while adding tracks for '{user}'. Added {added} of {requested}."
 
 # Pause
 LOG_PAUSE_EXECUTED                  = "Pause command executed: Paused by '{user}'."

@@ -73,6 +73,9 @@ class VoiceSession:
         self._connection: VoiceConnection | None = None
         self._notifier = notifier
         self._timer = timer
+        # Commands currently working on the session; no timeout runs while there are any
+        self._requests = 0
+        self._end_count = 0
 
     @property
     def state(self) -> PlaybackState:
@@ -140,7 +143,24 @@ class VoiceSession:
         else:
             self._start_timeout(EndReason.IDLE)
 
+    @property
+    def end_count(self) -> int:
+        """How many times the session has ended; compare two readings to see if it ended in between."""
+        return self._end_count
+
+    def begin_request(self) -> None:
+        """A command started working on the session: hold all timeouts until it finishes."""
+        self._requests += 1
+        self._timer.cancel()
+
+    def finish_request(self) -> None:
+        """A command finished: once none are left, start the timeout that fits the current state."""
+        self._requests -= 1
+        if self._requests == 0:
+            self.on_members_changed()
+
     def on_members_changed(self) -> None:
+        """Start, restart or cancel the timeout to match who is in the channel and what is playing."""
         if self._connection is None:
             return
 
@@ -162,6 +182,7 @@ class VoiceSession:
         text_channel_id = self.text_channel_id
 
         # Mark the session as gone before disconnecting, so on_track_ended has nothing to play.
+        self._end_count += 1
         self._timer.cancel()
         self.queue.clear()
         self._connection = None
@@ -194,6 +215,10 @@ class VoiceSession:
             self._start_timeout(EndReason.IDLE)
 
     def _start_timeout(self, reason: EndReason) -> None:
+        if self._requests > 0:
+            return  # finish_request() picks the right timeout when the last command finishes
+
         seconds = TIMEOUT_SECONDS[reason]
         logger.info("Starting timeout: reason=%s, seconds=%s.", reason, seconds)
         self._timer.start(seconds, partial(self.end, reason))
+

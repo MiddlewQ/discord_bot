@@ -38,6 +38,13 @@ class AudioCog(commands.Cog):
     async def cog_check(self, ctx: commands.Context) -> bool:
         return ctx.guild is not None
 
+    # Timeouts are held while any command runs, so the bot never leaves mid-command
+    async def cog_before_invoke(self, ctx: commands.Context) -> None:
+        self.session.begin_request()
+
+    async def cog_after_invoke(self, ctx: commands.Context) -> None:
+        self.session.finish_request()
+
     # 2. State helpers
     def get_vc(self, guild: discord.Guild | None) -> discord.VoiceClient | None:
         """The guild's voice client, or None when the voice session is not connected."""
@@ -292,12 +299,23 @@ class AudioCog(commands.Cog):
 
         return voice.user_channel
 
-    async def enqueue_queries(self, ctx, queries: list[str], user_channel) -> int:
-        """Search, queue and announce each query in turn; start playback on the first track found. Returns how many were added."""
+    async def enqueue_queries(self, ctx, queries: list[str], user_channel) -> tuple[int, bool]:
+        """Search, queue and announce each query in turn; start playback on the first track found.
+
+        Returns how many tracks were added, and whether it stopped early because the voice
+        session ended or could not connect (both already told the user).
+        """
         added = 0
+        end_count = self.session.end_count
 
         for query in queries:
             track = await self.resolve_track(ctx, query)
+
+            # The session ended (stop, disconnect) while searching: don't queue into a new one
+            if self.session.end_count != end_count:
+                logger.info(msg.LOG_QUEUEING_STOPPED_SESSION_ENDED.format(user=ctx.author.name, added=added, requested=len(queries)))
+                return added, True
+
             if track is None:
                 continue
 
@@ -305,7 +323,7 @@ class AudioCog(commands.Cog):
                 vc = self.get_vc(ctx.guild)
                 if vc is None or vc.channel != user_channel:
                     if not await self.connect_session(ctx, user_channel):
-                        return added
+                        return added, True
 
                 self.queue_track(track)
                 await ctx.send(embed=self.build_now_playing_embed(track, ctx.author))
@@ -316,7 +334,7 @@ class AudioCog(commands.Cog):
 
             added += 1
 
-        return added
+        return added, False
 
     async def resolve_track(self, ctx, query: str) -> Track | None:
         """Search for one query; on failure reply with the query and the reason, and return None."""
@@ -464,10 +482,11 @@ class AudioCog(commands.Cog):
             await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_MAX_TRACKS.format(number=MULTIPLAY_MAX_TRACKS)))
             searches = searches[:MULTIPLAY_MAX_TRACKS]
 
-        added = await self.enqueue_queries(ctx, searches, user_channel)
+        added, stopped = await self.enqueue_queries(ctx, searches, user_channel)
 
-        # Only summarise when something failed; every success already has its own line
-        if added < len(searches):
+        # Only summarise when a search failed; every success already has its own line,
+        # and an early stop was already announced (stop, disconnect or connection error)
+        if added < len(searches) and not stopped:
             await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_SUMMARY.format(added=added, requested=len(searches))))
 
         logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(added=added, requested=len(searches), user=ctx.author.name))
