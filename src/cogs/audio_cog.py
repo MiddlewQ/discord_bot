@@ -15,6 +15,9 @@ from src.utils.partionation import PaginationView
 
 logger = logging.getLogger("audio")
 
+MAX_TRACK_SECONDS = 1200
+MULTIPLAY_MAX_TRACKS = 8
+
 class AudioCog(commands.Cog):
 
     # 1. Setup & configuration
@@ -259,20 +262,71 @@ class AudioCog(commands.Cog):
         ), None
 
     # 4. Queueing
-    async def resolve_track(self, ctx, query: str) -> Track | None:
+    async def get_queueing_channel(self, ctx) -> discord.VoiceChannel | discord.StageChannel | None:
+        """The user's voice channel if they may queue tracks from it; otherwise reply and return None."""
+        voice = self.get_voice_context(ctx)
 
-        track, error_message = await self.search_youtube(query)
+        if voice.user_channel is None:
+            logger.info(msg.LOG_PLAY_FAILED_USER_NOT_CONNECTED.format(user=ctx.author.name))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+            return None
+
+        if voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            if voice.vc is None:
+                logger.warning("Playback state was %s but voice client was missing", voice.state)
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
+                return None
+
+            if voice.user_channel != voice.vc.channel:
+                await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=voice.vc.channel.name)))
+                logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
+                return None
+
+        return voice.user_channel
+
+    async def enqueue_queries(self, ctx, queries: list[str], user_channel) -> int:
+        """Search, queue and announce each query in turn; start playback on the first track found. Returns how many were added."""
+        added = 0
+
+        for query in queries:
+            track = await self.resolve_track(ctx, query)
+            if track is None:
+                continue
+
+            if self.session.state in (PlaybackState.DISCONNECTED, PlaybackState.IDLE):
+                vc = self.get_vc(ctx.guild)
+                if vc is None or vc.channel != user_channel:
+                    if not await self.connect_session(ctx, user_channel):
+                        return added
+
+                self.queue_track(track)
+                await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=track.title, webpage_url=track.webpage_url)))
+                await self.session.start(ctx.channel.id)
+            else:
+                position = self.queue_track(track)
+                await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))
+
+            added += 1
+
+        return added
+
+    async def resolve_track(self, ctx, query: str) -> Track | None:
+        """Search for one query; on failure reply with the query and the reason, and return None."""
+        track, reason = await self.search_youtube(query)
 
         if track is None:
-            await ctx.send(embed=discord.Embed(description=error_message or msg.PLAY_FAIL_VIDEO_NOT_FOUND))
-            return None
-
-        if track.duration > 1200:
-            await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_VIDEO_TOO_LONG.format(minutes=1200/60)))
+            reason = reason or msg.PLAY_FAIL_VIDEO_NOT_FOUND
+        elif track.duration > MAX_TRACK_SECONDS:
+            reason = msg.PLAY_FAIL_VIDEO_TOO_LONG.format(minutes=MAX_TRACK_SECONDS // 60)
             logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
-            return None
+        else:
+            return track
 
-        return track
+        await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_TRACK.format(
+            query=discord.utils.escape_markdown(query),
+            reason=reason,
+        )))
+        return None
 
     def queue_track(self, track: Track) -> int:
         position = self.session.queue.enqueue(track)
@@ -366,50 +420,12 @@ class AudioCog(commands.Cog):
             logger.info(msg.LOG_PLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return
-        
-        
-        voice = self.get_voice_context(ctx)
-        
-        if voice.user_channel is None:
-            logger.info(msg.LOG_PLAY_FAILED_USER_NOT_CONNECTED.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+
+        user_channel = await self.get_queueing_channel(ctx)
+        if user_channel is None:
             return
 
-        should_start_after_queue = False
-        should_connect_or_move = False
-
-        if voice.state in (PlaybackState.DISCONNECTED, PlaybackState.IDLE):
-            should_start_after_queue = True
-            should_connect_or_move = voice.vc is None or voice.vc.channel != voice.user_channel
-        elif voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            if voice.vc is None:
-                logger.warning("Playback state was %s but voice client was missing", voice.state)
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-                return
-
-            if voice.user_channel != voice.vc.channel:
-                await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=voice.vc.channel.name)))
-                logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name))
-                return 
-
-        query = " ".join(args)
-
-        track = await self.resolve_track(ctx, query)
-        if track is None:
-            return
-
-        if should_connect_or_move:
-            ok = await self.connect_session(ctx, voice.user_channel)
-            if not ok:
-                return
-
-        position = self.queue_track(track)
-
-        if should_start_after_queue:
-            await ctx.send(embed=discord.Embed(description=msg.START_PLAYBACK.format(title=track.title, webpage_url=track.webpage_url)))
-            await self.session.start(ctx.channel.id)
-        else:
-            await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))
+        await self.enqueue_queries(ctx, [" ".join(args)], user_channel)
 
 
     @commands.command(name="multiplay", aliases=["mp", "mplay", "mb"], help=msg.HELP_MESSAGES['multiplay'], usage=msg.HELP_USAGES['multiplay'])
@@ -421,77 +437,32 @@ class AudioCog(commands.Cog):
             logger.info(msg.LOG_MULTIPLAY_FAILED_NO_ARGS.format(user=ctx.author.name))
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return 
-        
-        voice = self.get_voice_context(ctx)
 
-        if voice.user_channel is None:
-            logger.info(msg.LOG_PLAY_FAILED_USER_NOT_CONNECTED.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_USER_NOT_CONNECTED))
+        user_channel = await self.get_queueing_channel(ctx)
+        if user_channel is None:
             return
-        
-        should_start_after_queue = False
-        should_connect_or_move = False
-        if voice.state in (PlaybackState.DISCONNECTED, PlaybackState.IDLE):
-            should_start_after_queue = True
-            should_connect_or_move = voice.vc is None or voice.vc.channel != voice.user_channel
 
-        elif voice.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            if voice.vc is None:
-                logger.warning("Playback state was %s because client was missing", voice.state)
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_CONNECTED))
-                return
-            
-            if voice.user_channel != voice.vc.channel:
-                await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL.format(channel=voice.vc.channel.name)))
-                logger.info(msg.LOG_PLAY_FAILED_USER_CHANNEL_OTHER.format(user=ctx.author.name, user_vc=voice.user_channel.name, bot_vc=voice.vc.channel.name,))
-                return
-        
-        query = " ".join(args)
-        
         searches = [
             search.strip() 
-            for search in query.split('|')
+            for search in " ".join(args).split('|')
             if search.strip()
         ]
         
         if not searches:
             await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_NO_ARGS))
             return 
-        
-        add_max = 20
-        if len(searches) > add_max:
-            await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_MAX_TRACKS.format(number=add_max)))
-            searches = searches[:add_max]
 
-        resolved_tracks: list[Track] = []
-        for search in searches:
-            track = await self.resolve_track(ctx, search)
-            if track is None:
-                continue
+        if len(searches) > MULTIPLAY_MAX_TRACKS:
+            await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_MAX_TRACKS.format(number=MULTIPLAY_MAX_TRACKS)))
+            searches = searches[:MULTIPLAY_MAX_TRACKS]
 
-            resolved_tracks.append(track)
+        added = await self.enqueue_queries(ctx, searches, user_channel)
 
-        queued_count = len(resolved_tracks)
+        # Only summarise when something failed; every success already has its own line
+        if added < len(searches):
+            await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_SUMMARY.format(added=added, requested=len(searches))))
 
-        if queued_count == 0:
-            return
-
-        if should_connect_or_move:
-            ok = await self.connect_session(ctx, voice.user_channel)
-            if not ok:
-                return
-
-        for track in resolved_tracks:
-            position = self.queue_track(track)
-            await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))
-
-        if should_start_after_queue:
-            await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_START_PLAYBACK.format(number=queued_count)))
-            await self.session.start(ctx.channel.id)
-        else:
-            await ctx.send(embed=discord.Embed(description=msg.MULTIPLAY_QUEUE_TRACKS.format(number=queued_count)))
-            
-        logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(number_of_tracks=queued_count))
+        logger.info(msg.LOG_MULTIPLAY_EXECUTED.format(added=added, requested=len(searches), user=ctx.author.name))
 
 
     @commands.command(name="pause", help=msg.HELP_MESSAGES["pause"], usage=msg.HELP_USAGES["pause"])

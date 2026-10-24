@@ -5,7 +5,7 @@ HELP_MESSAGES = {
     "help": "Displays help message for all commands or a specific command.",
     "join": "Connects the bot to your voice channel.",
     "play": "Searches YouTube and plays a track.",
-    "multiplay": "Adds up to 20 tracks to the queue.",
+    "multiplay": "Adds up to 8 tracks to the queue.",
     "pause": "Pauses the current track.",
     "resume": "Resumes the current track.",
     "skip": "Skips the current track.",
@@ -53,20 +53,20 @@ START_PLAYBACK                      = ":gear: **Starting:** [{title}]({webpage_u
 PLAYING                             = ":gear: **Currently playing:** [{title}]({webpage_url})"
 FAIL_PLAYBACK                       = ":gear: Error playing track."
 PLAY_FAIL_NO_ARGS                   = ":gear: No arguments were provided. Please specify a search term or URL."
-PLAY_FAIL_VIDEO_TOO_LONG            = ":gear: Max video length: {minutes} minutes."
 PLAY_FAIL_QUEUE_FROM_OTHER_CHANNEL  = ":gear: I am already playing audio in {channel}. Join that voice channel to queue tracks."
 
-# YouTube / yt-dlp user-facing failures
-PLAY_FAIL_VIDEO_NOT_FOUND           = ":gear: Could not find any video."
-PLAY_FAIL_VIDEO_UNAVAILABLE         = ":gear: That YouTube video is unavailable, private, or region-blocked."
-PLAY_FAIL_VIDEO_AGE_RESTRICTED      = ":gear: That YouTube video is age-restricted and cannot be played without authentication."
-PLAY_FAIL_YTDLP_RUNTIME             = ":gear: The bot cannot currently read some YouTube videos because YouTube extraction is not fully configured."
-PLAY_FAIL_YTDLP_ERROR               = ":gear: Could not read this YouTube video right now."
+# Failed searches: PLAY_FAIL_TRACK wraps one of the reasons below
+PLAY_FAIL_TRACK                     = ":gear: Could not add **{query}**: {reason}"
+PLAY_FAIL_VIDEO_NOT_FOUND           = "No video found."
+PLAY_FAIL_VIDEO_TOO_LONG            = "The video is longer than {minutes} minutes."
+PLAY_FAIL_VIDEO_UNAVAILABLE         = "The video is unavailable, private, or region-blocked."
+PLAY_FAIL_VIDEO_AGE_RESTRICTED      = "The video is age-restricted and cannot be played without signing in."
+PLAY_FAIL_YTDLP_RUNTIME             = "YouTube extraction is not fully configured on the bot."
+PLAY_FAIL_YTDLP_ERROR               = "YouTube could not be read right now."
 
 # Multiplay
-MULTIPLAY_START_PLAYBACK            = ":gear: Added {number} tracks. Starting playback."
-MULTIPLAY_MAX_TRACKS                = ":gear: Max {number} tracks can be added simultaneously. Adding the first {number}."
-MULTIPLAY_QUEUE_TRACKS              = ":gear: Added {number} tracks to the queue."
+MULTIPLAY_MAX_TRACKS                = ":gear: Max {number} tracks can be added at once. Adding the first {number}."
+MULTIPLAY_SUMMARY                   = ":gear: Added {added} of {requested} tracks."
 
 # Pause / Resume
 PAUSED                              = ":gear: Paused."
@@ -143,7 +143,7 @@ LOG_PLAY_FAILED_NO_ARGS             = "Play command failed: No arguments provide
 LOG_PLAY_FAILED_TOO_LONG            = "Play command failed: Track for query '{query}' requested by '{user}' is too long."
 
 # Multiplay
-LOG_MULTIPLAY_EXECUTED              = "Multiplay command executed: {number_of_tracks} tracks added to the queue."
+LOG_MULTIPLAY_EXECUTED              = "Multiplay command executed: Added {added} of {requested} tracks for '{user}'."
 LOG_MULTIPLAY_FAILED_NO_ARGS        = "Multiplay command failed: User '{user}' provided no arguments."
 
 # Pause
