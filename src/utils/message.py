@@ -143,7 +143,7 @@ LOG_YTDLP_ENTRY_MISSING_URL         = "yt-dlp search failed: Entry missing webpa
 # Play
 LOG_PLAY_TRACK_QUEUED               = "Play command executed: Track '{title}' added to queue. Webpage URL: {webpage_url}."
 LOG_PLAY_FAILED_NO_ARGS             = "Play command failed: No arguments provided by '{user}'."
-LOG_PLAY_FAILED_TOO_LONG            = "Play command failed: Track for query '{query}' requested by '{user}' is too long."
+LOG_TRACK_TOO_LONG                  = "Search rejected: Track '{title}' for query '{query}' is {minutes} minutes long."
 
 # Multiplay
 LOG_MULTIPLAY_EXECUTED              = "Multiplay command executed: Added {added} of {requested} tracks for '{user}'."

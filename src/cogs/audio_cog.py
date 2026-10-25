@@ -2,11 +2,10 @@ import discord
 import asyncio
 from dataclasses import dataclass
 from discord.ext import commands
-from yt_dlp import YoutubeDL
-from yt_dlp.utils import DownloadError, ExtractorError
 
 from src.bot.admission import CommandRequest, Needs, Reject, check
 from src.bot.playback import AsyncioTimer, DiscordSessionNotifier, DiscordVoiceConnection
+from src.bot.track_resolver import LookupFailure, TrackResolver
 from src.audio.track import Track
 from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
 from src.utils.logging_config import *
@@ -18,6 +17,16 @@ logger = logging.getLogger("audio")
 
 MAX_TRACK_SECONDS = 1800
 MULTIPLAY_MAX_TRACKS = 8
+
+# Why a search can't be queued, as the reason in "Could not add <search>: <reason>"
+LOOKUP_REASONS = {
+    LookupFailure.NOT_FOUND: msg.PLAY_FAIL_VIDEO_NOT_FOUND,
+    LookupFailure.UNAVAILABLE: msg.PLAY_FAIL_VIDEO_UNAVAILABLE,
+    LookupFailure.AGE_RESTRICTED: msg.PLAY_FAIL_VIDEO_AGE_RESTRICTED,
+    LookupFailure.NO_JS_RUNTIME: msg.PLAY_FAIL_YTDLP_RUNTIME,
+    LookupFailure.YTDLP_ERROR: msg.PLAY_FAIL_YTDLP_ERROR,
+    LookupFailure.TOO_LONG: msg.PLAY_FAIL_VIDEO_TOO_LONG,
+}
 
 
 # Replies for rejected commands; WRONG_TEXT_CHANNEL has none on purpose (replies in other channels clutter them)
@@ -58,13 +67,8 @@ class AudioCog(commands.Cog):
         self.bot: commands.Bot = bot
         
         self.session = VoiceSession(DiscordSessionNotifier(bot), AsyncioTimer())
+        self.resolver = TrackResolver(max_seconds=MAX_TRACK_SECONDS)
         self.logger = logger
-
-        self.YDL_OPTIONS = {"format": "bestaudio[ext=m4a]/bestaudio/best",
-                            "noplaylist": True,
-                            "quiet": True,}
-
-        self.ytdl = YoutubeDL(self.YDL_OPTIONS) # type: ignore
 
         self.logger.info("AudioCog initialized successfully.")
 
@@ -188,92 +192,6 @@ class AudioCog(commands.Cog):
         embed.set_footer(icon_url=requester.display_avatar.url, text=f"requested by {str(requester).capitalize()}")
         return embed
 
-    async def search_youtube(self, query: str) -> tuple[Track | None, str | None]:
-        loop = asyncio.get_running_loop()
-
-        is_url = query.startswith("http")
-        search_query = query if is_url else f"ytsearch1:{query}"
-
-        try:
-            info = await loop.run_in_executor(
-                None,
-                lambda: self.ytdl.extract_info(search_query, download=False)
-            )
-
-        except (DownloadError, ExtractorError) as e:
-            error_text = str(e).lower()
-
-            if "this video is not available" in error_text:
-                logger.warning(msg.LOG_YTDLP_FAILED_UNAVAILABLE.format(query=query, error=e))
-                return None, msg.PLAY_FAIL_VIDEO_UNAVAILABLE
-
-            if (
-                "sign in to confirm your age" in error_text
-                or "age-restricted" in error_text
-                or "this video may be inappropriate" in error_text
-            ):
-                logger.warning(msg.LOG_YTDLP_FAILED_AGE_RESTRICTED.format(query=query, error=e))
-                return None, msg.PLAY_FAIL_VIDEO_AGE_RESTRICTED
-
-            if (
-                "no supported javascript runtime" in error_text
-                or ("javascript runtime" in error_text and "deno" in error_text)
-            ):
-                logger.warning(msg.LOG_YTDLP_FAILED_RUNTIME.format(query=query, error=e))
-                return None, msg.PLAY_FAIL_YTDLP_RUNTIME
-
-            logger.warning(msg.LOG_YTDLP_FAILED_EXTRACTION.format(query=query, error=e))
-            return None, msg.PLAY_FAIL_YTDLP_ERROR
-        except Exception:
-            logger.exception(msg.LOG_YTDLP_FAILED_UNEXPECTED.format(query=query))
-            return None, msg.PLAY_FAIL_YTDLP_ERROR
-
-
-        if not isinstance(info, dict):
-            logger.warning(msg.LOG_YTDLP_RESULT_INVALID.format(query=query,result_type=type(info).__name__,))
-            return None, msg.PLAY_FAIL_VIDEO_NOT_FOUND
-
-        entries = info.get("entries")
-
-        if isinstance(entries, list):
-            if not entries:
-                logger.warning(msg.LOG_YTDLP_RESULT_EMPTY.format(query=query))
-                return None, msg.PLAY_FAIL_VIDEO_NOT_FOUND
-
-            maybe_entry = entries[0]
-        else:
-            maybe_entry = info 
-
-        if not isinstance(maybe_entry, dict):
-            logger.warning(msg.LOG_YTDLP_ENTRY_INVALID.format(query=query, entry_type=type(maybe_entry).__name__))
-            return None, msg.PLAY_FAIL_VIDEO_NOT_FOUND
-
-        entry = maybe_entry 
-
-        webpage_url = entry.get('webpage_url') or entry.get("original_url")
-        if not isinstance(webpage_url, str) or not webpage_url:
-            logger.warning(msg.LOG_YTDLP_ENTRY_MISSING_URL.format(query=query))
-            return None, msg.PLAY_FAIL_VIDEO_NOT_FOUND
-
-        thumbnail = entry.get("thumbnail")
-        if not thumbnail:
-            thumbnails = entry.get("thumbnails") or []
-            if isinstance(thumbnails, list) and thumbnails:
-                first = thumbnails[0]
-                last = thumbnails[-1]
-
-                first_url = first.get("url") if isinstance(first, dict) else None
-                last_url = last.get("url") if isinstance(last, dict) else None
-
-                thumbnail = first_url or last_url
-
-        return Track(
-            title=entry.get('title') or "Unknown title",
-            webpage_url=webpage_url,
-            duration=int(entry.get('duration') or 0),
-            thumbnail=thumbnail,
-        ), None
-
     # 4. Queueing
     async def enqueue_queries(self, ctx, queries: list[str], user_channel) -> tuple[int, bool]:
         """Search, queue and announce each query in turn; start playback on the first track found.
@@ -317,16 +235,12 @@ class AudioCog(commands.Cog):
 
     async def resolve_track(self, ctx, query: str) -> Track | None:
         """Search for one query; on failure reply with the query and the reason, and return None."""
-        track, reason = await self.search_youtube(query)
+        result = await self.resolver.resolve(query)
 
-        if track is None:
-            reason = reason or msg.PLAY_FAIL_VIDEO_NOT_FOUND
-        elif track.duration > MAX_TRACK_SECONDS:
-            reason = msg.PLAY_FAIL_VIDEO_TOO_LONG.format(minutes=MAX_TRACK_SECONDS // 60)
-            logger.info(msg.LOG_PLAY_FAILED_TOO_LONG.format(query=query, user=ctx.author.name))
-        else:
-            return track
+        if isinstance(result, Track):
+            return result
 
+        reason = LOOKUP_REASONS[result].format(minutes=self.resolver.max_seconds // 60)
         await ctx.send(embed=discord.Embed(description=msg.PLAY_FAIL_TRACK.format(
             query=discord.utils.escape_markdown(query),
             reason=reason,
