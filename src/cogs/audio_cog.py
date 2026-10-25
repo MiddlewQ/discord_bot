@@ -16,7 +16,7 @@ from src.utils.partionation import PaginationView
 
 logger = logging.getLogger("audio")
 
-MAX_TRACK_SECONDS = 1200
+MAX_TRACK_SECONDS = 1800
 MULTIPLAY_MAX_TRACKS = 8
 
 
