@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 # Logging
 from src.utils.logging_config import *
+import src.utils.message as msg
 
 
 async def run_bot(prefix, token, logger):
@@ -23,6 +24,23 @@ async def run_bot(prefix, token, logger):
 
     bot = commands.Bot(command_prefix=prefix, intents=intents)
     bot.remove_command("help")
+
+    # Replaces discord.py's default handler, which logs every typo as an ERROR with a traceback
+    @bot.event
+    async def on_command_error(ctx: commands.Context, error: commands.CommandError) -> None:
+        channel = getattr(ctx.channel, "name", "a direct message")
+
+        if isinstance(error, commands.CommandNotFound):
+            logger.info(msg.LOG_COMMAND_UNKNOWN.format(user=ctx.author.name, message=ctx.message.content, channel=channel))
+            return
+
+        # cog_check rejects commands outside a server (direct messages)
+        if isinstance(error, commands.CheckFailure):
+            logger.info(msg.LOG_COMMAND_NOT_ALLOWED.format(user=ctx.author.name, command=ctx.command, channel=channel))
+            return
+
+        cause = error.original if isinstance(error, commands.CommandInvokeError) else error
+        logger.error(msg.LOG_COMMAND_ERROR.format(user=ctx.author.name, command=ctx.command), exc_info=cause)
 
     # Ctrl+C and Docker's stop signal both close the bot cleanly: leave voice, then disconnect
     loop = asyncio.get_running_loop()

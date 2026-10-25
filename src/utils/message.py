@@ -119,6 +119,9 @@ LOG_HELP_FAILED_INVALID_CMD         = "Help command failed: User '{user}' attemp
 
 # General
 LOG_LEFT_LEFTOVER_VOICE             = "Startup: Left voice channel '{channel}' in '{guild}', left over from a previous run."
+LOG_COMMAND_UNKNOWN                 = "Unknown command: User '{user}' typed '{message}' in '{channel}'."
+LOG_COMMAND_NOT_ALLOWED             = "Command not allowed: User '{user}' ran '{command}' in '{channel}'."
+LOG_COMMAND_ERROR                   = "Command error: '{command}' by '{user}' failed."
 LOG_COMMAND_REJECTED                = "Command rejected: User '{user}' ran '{command}' in '{text_channel}': {reason}. User voice: '{user_vc}', bot voice: '{bot_vc}'."
 
 # Join
