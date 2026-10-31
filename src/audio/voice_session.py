@@ -186,14 +186,14 @@ class VoiceSession:
                 self._start_timeout(EndReason.IDLE)
 
     async def end(self, reason: EndReason) -> None:
-        """The only way a session ends: cancel the timeout, clear the queue, disconnect, notify."""
+        """The only way a session ends: cancel the timeout, reset the queue, disconnect, notify."""
         connection = self._connection
         text_channel_id = self.text_channel_id
 
         # Mark the session as gone before disconnecting, so on_track_ended has nothing to play.
         self._end_count += 1
         self._timer.cancel()
-        self.queue.clear()
+        self.queue.reset()
         self._connection = None
         self.text_channel_id = None
 

@@ -316,6 +316,15 @@ def test_end_clears_everything():
     assert not timer.running
 
 
+def test_end_restarts_track_numbers_for_the_next_session():
+    session, _, _, _ = attached_session("a", "b")
+
+    asyncio.run(session.end(EndReason.STOPPED))
+    session.queue.enqueue(make_track("c"))
+
+    assert [queued.number for queued in session.queue.numbered_upcoming] == [1]
+
+
 def test_track_ending_after_session_ended_plays_nothing():
     session, connection, timer, _ = attached_session("a", "b")
     asyncio.run(session.start(TEXT_CHANNEL))
