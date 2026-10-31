@@ -48,8 +48,17 @@ play in one server at a time.
   move, not mixed. Subjects use lowercase prefixes: `add:`, `update:`,
   `fix:`, `refactor:`, `chore:`; the body says why. Don't amend pushed
   commits.
-- **Suggest a commit message with every finished step**: subject and body,
-  following the rule above. The owner makes the commit.
+- **Suggest a commit message with every finished step**, and the owner
+  makes the commit. Match `git log`: small changes and `chore:` commits get
+  a subject only. Bigger behaviour changes and refactors get 3 to 5 lines
+  on what was wrong and what happens now, not a list of what the diff shows.
+  If that is not enough to describe the change in behaviour, tell the user a
+  longer commit message should be added. Make sure the user notices this
+  recommendation.
+- **Write plainly**: commit messages, comments, docstrings and replies
+  should make sense to a junior developer or a university student. Say what
+  actually happens, in everyday words, and explain a technical term when
+  it's needed. Clear doesn't mean talking down.
 - **New text goes in `src/utils/message.py`**: user-facing strings and
   `LOG_*` lines, filled in with `.format()`. Some older log lines are still
   inline. Delete constants once nothing uses them.
