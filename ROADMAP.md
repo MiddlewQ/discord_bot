@@ -4,6 +4,18 @@ Planned features for the bot, in rough order. Each item should be built in
 small steps, one kind of change per commit. Read an item's open questions
 before starting it, and settle them with the owner first.
 
+Update `Now` and delete an item only once it is finished; `git log` has the
+history.
+
+## Now
+
+Item 1, Stable track numbers, in progress.
+
+- Done: TrackQueue, including tests.
+- Next: switch `!queue` and `!remove` to numbers and delete `remove(position)`.
+- Then: the Added to queue card shows both values, so `enqueue()` must return
+  the number too.
+
 ## 1. Stable track numbers
 
 Positions shift as tracks play, which makes `!remove` unreliable. Example:
@@ -16,11 +28,11 @@ exists, so the bot answers "invalid position".
 - The place in line stays a separate value, used for "up next" and
   "Starts in".
 
-Open questions:
+Decisions:
 
-- Should numbers restart at 1 for each new session? (Suggested: yes.)
-- Should the Added to queue card show this number instead of the current
-  position? (Suggested: yes, it is the one `!remove` needs.)
+- Numbers restart at 1 for each new session.
+- `!clear` does not reset them.
+- The Added to queue card shows both the number and the position.
 
 ## 2. Logging cleanup
 

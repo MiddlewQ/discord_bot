@@ -106,3 +106,9 @@ play in one server at a time.
 
 Planned features, their order and open questions are in `ROADMAP.md`. Read
 the item before starting work on it.
+
+- One session is for one roadmap item, however many commits it takes.
+- At the start, suggest `/rename <item name>` to the owner.
+- Don't touch `ROADMAP.md` while an item is part way done.
+- When the item is finished, without being asked, delete it from
+  `ROADMAP.md` and point `Now` at the next item, as the last commit.
