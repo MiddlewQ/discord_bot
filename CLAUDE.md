@@ -48,6 +48,8 @@ play in one server at a time.
   move, not mixed. Subjects use lowercase prefixes: `add:`, `update:`,
   `fix:`, `refactor:`, `chore:`; the body says why. Don't amend pushed
   commits.
+- **Suggest a commit message with every finished step**: subject and body,
+  following the rule above. The owner makes the commit.
 - **New text goes in `src/utils/message.py`**: user-facing strings and
   `LOG_*` lines, filled in with `.format()`. Some older log lines are still
   inline. Delete constants once nothing uses them.
