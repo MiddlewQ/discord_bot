@@ -93,30 +93,5 @@ play in one server at a time.
 
 ## Roadmap
 
-Rough order; each item should be its own small steps and commits.
-
-1. **Stable track numbers**: each queued track keeps its number until it
-   plays, so `!remove 12` still means the same track after earlier tracks
-   played or were removed. The order in upcoming stays a separate value.
-2. **Logging cleanup**: fewer log files, DEBUG used for real detail, a
-   simpler logger setup.
-3. **Warn the owner about errors** via Discord DM, rate-limited. Use the
-   owner from `application_info().owner`, never a hard-coded user.
-4. **Permissions**: anyone may skip (no vote skipping); removing a track is
-   for whoever added it or a Discord admin; with nobody in the voice
-   channel, `!stop` is accepted from any channel.
-5. **Playlists**: a separate command queues a YouTube playlist. A normal
-   link in `!play` keeps adding only that one video.
-6. **Auto-pause** when the last person leaves, auto-resume when someone
-   joins.
-7. **Several servers at once**: one `VoiceSession` per server. Needed
-   before per-server stats.
-8. **Stats that survive restarts**: a database on the Pi, events written as
-   they happen, per server by default, test server excluded.
-9. **Prefetch and cache**: download queued tracks while the current one
-   streams; keep often-played tracks locally. Cache by video ID, never by
-   title, so the search still decides which song is meant. Off by default,
-   with a size limit and a clear README section.
-10. **Other providers** as a fallback in the Track resolver (e.g.
-    SoundCloud through yt-dlp). Spotify audio can't be streamed.
-11. **README** listing all features and settings.
+Planned features, their order and open questions are in `ROADMAP.md`. Read
+the item before starting work on it.
