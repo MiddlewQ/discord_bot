@@ -167,17 +167,24 @@ class AudioCog(commands.Cog):
         embed.add_field(name="Length", value=format_track_length(track.duration), inline=True)
         # Counts the full length of the current track, not the time left in it, so it is an estimate
         embed.add_field(name="Starts in", value=format_wait(self.session.queue.time_until(placement.position)), inline=True)
-        # Keep the numbers plain so the columns line up across cards; "up next" goes in the header
+        # The only "#" on the card, so nobody mistakes the place in line for the number !remove needs
         embed.add_field(name=msg.CARD_NUMBER, value=f"#{placement.number}", inline=True)
-        embed.add_field(name=msg.CARD_POSITION, value=f"#{placement.position}", inline=True)
         bot_user = self.bot.user
         icon_url = bot_user.display_avatar.url if bot_user is not None else None
 
-        embed.set_author(icon_url=icon_url, name="Added to queue · up next" if placement.position == 1 else "Added to queue")
+        embed.set_author(icon_url=icon_url, name=self.queued_card_header(placement.position))
         if track.thumbnail:
             embed.set_thumbnail(url=track.thumbnail)
         embed.set_footer(icon_url=requester.display_avatar.url, text=f"requested by {str(requester).capitalize()}")
         return embed
+
+    @staticmethod
+    def queued_card_header(position: int) -> str:
+        """Header of the Added to queue card; counts waiting tracks ahead, not the current one."""
+        ahead = position - 1
+        if ahead == 0:
+            return msg.CARD_ADDED_UP_NEXT
+        return msg.CARD_ADDED_ONE_AHEAD if ahead == 1 else msg.CARD_ADDED_MANY_AHEAD.format(ahead=ahead)
 
     def build_now_playing_embed(self, track: Track, number: int, requester):
         """Card posted when a requested track starts right away; styled like the Added to queue card."""
@@ -188,8 +195,6 @@ class AudioCog(commands.Cog):
         )
         embed.add_field(name="Length", value=format_track_length(track.duration), inline=True)
         embed.add_field(name=msg.CARD_NUMBER, value=f"#{number}", inline=True)
-        # A track that starts right away is first in line by definition
-        embed.add_field(name=msg.CARD_POSITION, value="#1", inline=True)
         bot_user = self.bot.user
         icon_url = bot_user.display_avatar.url if bot_user is not None else None
 

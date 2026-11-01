@@ -71,7 +71,9 @@ PLAY_FAIL_YTDLP_ERROR               = "YouTube could not be read right now."
 
 # Added to queue and Now playing cards
 CARD_NUMBER                         = "Number"
-CARD_POSITION                       = "Position"
+CARD_ADDED_UP_NEXT                  = "Added to queue · up next"
+CARD_ADDED_ONE_AHEAD                = "Added to queue · 1 song ahead"
+CARD_ADDED_MANY_AHEAD               = "Added to queue · {ahead} songs ahead"
 
 # Multiplay
 MULTIPLAY_MAX_TRACKS                = ":gear: Max {number} tracks can be added at once. Adding the first {number}."
