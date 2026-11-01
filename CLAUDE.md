@@ -46,6 +46,10 @@ time.
 - **One kind of change per commit**: a rename, a behaviour change or a file move, not mixed.
   Subjects use lowercase prefixes: `add:`, `update:`, `fix:`, `refactor:`, `chore:`; the body says
   why. Don't amend pushed commits.
+- **One change at a time**: before editing, run `git status`. If earlier work is uncommitted, suggest
+  its commit message and wait for the owner to commit it, even if they just asked for the next
+  change. Looking into a problem is fine while waiting; editing files is not. This keeps two changes
+  from ending up in the same files, where they are hard to separate.
 - **Suggest a commit message with every finished step**, and the owner makes the commit. Match
   `git log`: small changes and `chore:` commits get a subject only. Bigger behaviour changes and
   refactors get 3 to 5 lines on what was wrong and what happens now, not a list of what the diff
