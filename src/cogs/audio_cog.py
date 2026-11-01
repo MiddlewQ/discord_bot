@@ -15,7 +15,7 @@ from src.utils.time_conversion import *
 from src.utils.pagination import LinePaginationView
 from src.utils.queue_text import format_queue_line
 
-logger = logging.getLogger("audio")
+logger = logging.getLogger(__name__)
 
 MAX_TRACK_SECONDS = 1800
 MULTIPLAY_MAX_TRACKS = 8
@@ -73,9 +73,8 @@ class AudioCog(commands.Cog):
         self.resolver = TrackResolver(max_seconds=MAX_TRACK_SECONDS)
         # Joining voice takes a moment, and two commands joining at once would share a half-connected client
         self._join_lock = asyncio.Lock()
-        self.logger = logger
 
-        self.logger.info("AudioCog initialized successfully.")
+        logger.info("AudioCog initialized successfully.")
 
     async def cog_check(self, ctx: commands.Context) -> bool:
         return ctx.guild is not None

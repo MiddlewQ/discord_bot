@@ -17,8 +17,11 @@ from dotenv import load_dotenv
 from src.utils.logging_config import setup_logging
 import src.utils.message as msg
 
+# Not __name__: this file runs with python -m, which makes its __name__ "__main__"
+logger = logging.getLogger("src.main")
 
-async def run_bot(prefix, token, logger):
+
+async def run_bot(prefix, token):
     intents = discord.Intents.default()
     intents.message_content = True
 
@@ -47,7 +50,7 @@ async def run_bot(prefix, token, logger):
     shutdown_tasks: set[asyncio.Task] = set()  # asyncio only keeps weak references to tasks
 
     def on_signal(sig: signal.Signals) -> None:
-        task = asyncio.create_task(shutdown(bot, sig, logger))
+        task = asyncio.create_task(shutdown(bot, sig))
         shutdown_tasks.add(task)
         task.add_done_callback(shutdown_tasks.discard)
 
@@ -64,7 +67,7 @@ async def run_bot(prefix, token, logger):
         
         await bot.start(token)
 
-async def shutdown(bot: commands.Bot, sig: signal.Signals, logger: logging.Logger) -> None:
+async def shutdown(bot: commands.Bot, sig: signal.Signals) -> None:
     if bot.is_closed():
         return
 
@@ -87,9 +90,7 @@ async def main():
         print("No discord bot token provided.", file=sys.stderr)
         sys.exit(1)
 
-    logger = logging.getLogger("bot")
-
-    await run_bot(prefix, token, logger)
+    await run_bot(prefix, token)
     logger.info("Bot shut down.")
 
 if __name__ == "__main__":

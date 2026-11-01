@@ -39,8 +39,8 @@ LOGGING_CONFIG = {
         "level": "INFO",
     },
     "loggers": {
-        "bot": {"level": "DEBUG"},
-        "audio": {"level": "DEBUG"},
+        # Every logger in this project is named after its file, like src.audio.voice_session
+        "src": {"level": "DEBUG"},
     },
 }
 

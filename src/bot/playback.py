@@ -14,7 +14,7 @@ from src.audio.voice_session import EndReason, PlaybackError
 import logging
 import src.utils.message as msg
 
-logger = logging.getLogger("audio")
+logger = logging.getLogger(__name__)
 
 FFMPEG_OPTIONS = "-vn"
 # Only real errors on FFmpeg's stderr, so anything written there means playback failed

@@ -93,8 +93,8 @@ time.
 - **Dependencies live in two places**: `requirements.txt` (Docker, pip) and
   `pyproject.toml`/`uv.lock` (local, uv). Add new ones to both.
 - **Logging starts when `main()` calls `setup_logging()`**, not on import, so tests write no log
-  files. It writes to the relative path `logs/bot.log`, so run from the repo root, and use the
-  configured logger names (`bot`, `audio`).
+  files. It writes to the relative path `logs/bot.log`, so run from the repo root. Each file gets its
+  logger with `logging.getLogger(__name__)`.
 
 ## Roadmap
 

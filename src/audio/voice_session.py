@@ -8,7 +8,7 @@ from typing import Any, Protocol
 from src.audio.track import Track
 from src.audio.track_queue import TrackQueue
 
-logger = logging.getLogger("audio")
+logger = logging.getLogger(__name__)
 
 
 class PlaybackState(StrEnum):

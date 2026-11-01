@@ -4,7 +4,7 @@ from src.utils.pagination import PaginationView
 import logging
 import src.utils.message as msg
 
-logger = logging.getLogger("bot")
+logger = logging.getLogger(__name__)
 
 class HelpCog(commands.Cog):
     def __init__(self, bot):

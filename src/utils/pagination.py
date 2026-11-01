@@ -2,7 +2,7 @@ import discord
 import math
 import logging
 import src.utils.message as msg
-logger = logging.getLogger("bot")
+logger = logging.getLogger(__name__)
 
 class PaginationView(discord.ui.View):
 

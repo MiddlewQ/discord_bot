@@ -13,7 +13,7 @@ from src.bot.playback import YTDLP_AUDIO_FORMAT
 import logging
 import src.utils.message as msg
 
-logger = logging.getLogger("audio")
+logger = logging.getLogger(__name__)
 
 
 class LookupFailure(StrEnum):
