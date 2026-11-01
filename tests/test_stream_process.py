@@ -1,4 +1,5 @@
 import asyncio
+import os
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,25 @@ def test_raises_with_last_error_line_when_process_exits_without_output():
 def test_raises_when_no_output_within_timeout():
     with pytest.raises(RuntimeError, match="No audio"):
         asyncio.run(start_stream_process(python("import time; time.sleep(30)"), timeout=0.5))
+
+
+def test_cancelling_the_wait_stops_the_process(tmp_path):
+    pid_file = tmp_path / "pid"
+    code = f"import os, time; open({str(pid_file)!r}, 'w').write(str(os.getpid())); time.sleep(30)"
+
+    async def scenario():
+        start = asyncio.create_task(start_stream_process(python(code), timeout=20))
+        while not pid_file.exists() or not pid_file.read_text():
+            await asyncio.sleep(0.01)
+
+        start.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await start
+
+    asyncio.run(scenario())
+
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)  # signal 0 only checks that the process exists
 
 
 def test_describe_stream_error_maps_known_failures():

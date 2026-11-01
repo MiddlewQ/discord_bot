@@ -1,7 +1,7 @@
 import asyncio
 
 from src.audio.track import Track
-from src.audio.voice_session import EndReason, PlaybackError, PlaybackState, VoiceSession
+from src.audio.voice_session import TIMEOUT_SECONDS, EndReason, PlaybackError, PlaybackState, VoiceSession
 
 TEXT_CHANNEL = 100
 OTHER_CHANNEL = 200
@@ -313,6 +313,65 @@ def test_skip_returns_current_track_and_next_one_plays():
 
     assert skipped == make_track("a")
     assert connection.played == ["a", "b"]
+
+
+def test_skip_while_starting_cancels_the_start_and_plays_the_next_track():
+    async def scenario():
+        session, connection, _, notifier = attached_session("a", "b")
+        connection.gate = asyncio.Event()
+
+        start = asyncio.create_task(session.start(TEXT_CHANNEL))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert session.state == PlaybackState.STARTING
+
+        skipped = session.skip()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        connection.gate.set()
+        await start
+
+        assert skipped is not None and skipped.title == "a"
+        assert connection.played == ["b"]
+        assert notifier.failed == []  # skipping is not a failure
+
+    asyncio.run(scenario())
+
+
+def test_skip_of_the_last_track_while_starting_starts_idle_timeout():
+    async def scenario():
+        session, connection, timer, _ = attached_session("a")
+        connection.gate = asyncio.Event()
+
+        start = asyncio.create_task(session.start(TEXT_CHANNEL))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        session.skip()
+        await start
+
+        assert connection.played == []
+        assert session.state == PlaybackState.IDLE
+        assert session.queue.is_empty
+        assert timer.seconds == TIMEOUT_SECONDS[EndReason.IDLE]
+
+    asyncio.run(scenario())
+
+
+def test_skip_right_after_the_start_finished_stops_the_track():
+    async def scenario():
+        session, connection, _, _ = attached_session("a")
+
+        start = asyncio.create_task(session.start(TEXT_CHANNEL))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)  # play() is done, but the session has not noticed yet
+        assert connection.playing
+
+        session.skip()
+        await start
+
+        assert session.state == PlaybackState.IDLE
+
+    asyncio.run(scenario())
 
 
 def test_clear_while_playing_stops_and_then_idles():

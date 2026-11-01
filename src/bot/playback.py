@@ -48,6 +48,9 @@ async def start_stream_process(args: list[str], timeout: float) -> subprocess.Po
     except asyncio.TimeoutError:
         stop_stream_process(process)
         raise RuntimeError(f"No audio after {timeout} seconds")
+    except asyncio.CancelledError:  # the track was skipped before its audio began
+        stop_stream_process(process)
+        raise
 
     if not first_bytes:
         process.wait()

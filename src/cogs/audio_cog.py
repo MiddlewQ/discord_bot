@@ -474,7 +474,8 @@ class AudioCog(commands.Cog):
         """Skip the current track and tell the user; used by !skip and by !remove on the current track."""
         user = ctx.author
 
-        if self.session.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or self.session.queue.current is None:
+        skippable = (PlaybackState.PLAYING, PlaybackState.PAUSED, PlaybackState.STARTING)
+        if self.session.state not in skippable or self.session.queue.current is None:
             logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user.name, channel=vc.channel.name))
             await ctx.send(embed=discord.Embed(description=msg.SKIP_FAIL_NOTHING_TO_SKIP))
             return

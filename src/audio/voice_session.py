@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Coroutine
 from enum import StrEnum, auto
@@ -90,6 +91,8 @@ class VoiceSession:
         self._end_count = 0
         # True while _play_next runs, so a second run can't take tracks from the queue at the same time
         self._starting = False
+        # The running connection.play() call while a track starts, so skip() can cancel it
+        self._start_task: asyncio.Task[None] | None = None
 
     @property
     def state(self) -> PlaybackState:
@@ -139,11 +142,17 @@ class VoiceSession:
         self._timer.cancel()
 
     def skip(self) -> Track | None:
-        """Stop the current track and return it; the next one starts from on_track_ended."""
+        """Stop the current track and return it, even if its audio has not begun yet.
+
+        A playing track ends through on_track_ended, which starts the next one. A track still
+        starting has its start cancelled, and _start_first_playable moves on to the next one.
+        """
         if self._connection is None:
             return None
         track = self.queue.current
-        self._connection.stop()
+        # cancel() is False if the start has just finished, so the track is playing by now
+        if self._start_task is None or not self._start_task.cancel():
+            self._connection.stop()
         return track
 
     def clear(self) -> None:
@@ -234,8 +243,18 @@ class VoiceSession:
                 self.queue.clear()
                 return False
 
+            # A separate task, so that cancelling it stops this start but not the loop
+            start_task = asyncio.create_task(self._connection.play(track, on_end=self.on_track_ended))
+            self._start_task = start_task
+            await asyncio.wait({start_task})
+            self._start_task = None
+
+            if start_task.cancelled():
+                logger.info("Track '%s' was skipped while starting.", track.title)
+                continue
+
             try:
-                await self._connection.play(track, on_end=self.on_track_ended)
+                start_task.result()  # raises whatever went wrong in play()
             except PlaybackError as error:
                 logger.warning("Could not play track '%s': %s", track.title, error)
                 await self._notifier.track_failed(track, str(error), self.text_channel_id)
