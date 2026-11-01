@@ -27,8 +27,11 @@ class LookupFailure(StrEnum):
 
 def youtube_extract() -> Callable[[str], Any]:
     """yt-dlp's metadata lookup, without downloading; the default for TrackResolver."""
-    ytdl = YoutubeDL({"format": YTDLP_AUDIO_FORMAT, "noplaylist": True, "quiet": True})  # type: ignore[arg-type]
-    return lambda query: ytdl.extract_info(query, download=False)
+    options: Any = {"format": YTDLP_AUDIO_FORMAT, "noplaylist": True, "quiet": True}
+
+    # A new YoutubeDL for each lookup, because searches can run at the same time and one object
+    # can't handle that: it sees a second identical search as a repeat and returns None for it
+    return lambda query: YoutubeDL(options).extract_info(query, download=False)
 
 
 class TrackResolver:
