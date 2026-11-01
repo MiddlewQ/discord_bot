@@ -36,7 +36,7 @@ class CommandRequest:
 def check(request: CommandRequest) -> Reject | None:
     """Why the command may not run, or None if it may."""
     connected = request.session_state != PlaybackState.DISCONNECTED
-    busy = request.session_state in (PlaybackState.PLAYING, PlaybackState.PAUSED)
+    busy = request.session_state in (PlaybackState.STARTING, PlaybackState.PLAYING, PlaybackState.PAUSED)
 
     # The session text channel is locked while connected; a disconnected bot takes commands anywhere
     if (

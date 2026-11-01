@@ -10,6 +10,7 @@ OTHER_VOICE = 21
 
 DISCONNECTED = PlaybackState.DISCONNECTED
 IDLE = PlaybackState.IDLE
+STARTING = PlaybackState.STARTING
 PLAYING = PlaybackState.PLAYING
 PAUSED = PlaybackState.PAUSED
 
@@ -62,6 +63,7 @@ def request(
     (request(Needs.CAN_CONNECT, IDLE, user_voice=OTHER_VOICE), None),
     (request(Needs.CAN_CONNECT, PLAYING), None),
     (request(Needs.CAN_CONNECT, PLAYING, user_voice=OTHER_VOICE), Reject.BOT_BUSY_ELSEWHERE),
+    (request(Needs.CAN_CONNECT, STARTING, user_voice=OTHER_VOICE), Reject.BOT_BUSY_ELSEWHERE),
     (request(Needs.CAN_CONNECT, PAUSED, user_voice=OTHER_VOICE), Reject.BOT_BUSY_ELSEWHERE),
     (request(Needs.CAN_CONNECT, PLAYING, user_voice=None), Reject.USER_NOT_IN_VOICE),
     (request(Needs.CAN_CONNECT, PLAYING, bot_voice=None), Reject.BOT_NOT_IN_VOICE),

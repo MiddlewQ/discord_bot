@@ -13,6 +13,7 @@ logger = logging.getLogger("audio")
 class PlaybackState(StrEnum):
     DISCONNECTED = auto()
     IDLE = auto()
+    STARTING = auto()  # a track was picked, but its audio has not begun yet (takes a few seconds)
     PLAYING = auto()
     PAUSED = auto()
 
@@ -87,6 +88,8 @@ class VoiceSession:
         # Commands currently working on the session; no timeout runs while there are any
         self._requests = 0
         self._end_count = 0
+        # True while _play_next runs, so a second run can't take tracks from the queue at the same time
+        self._starting = False
 
     @property
     def state(self) -> PlaybackState:
@@ -96,6 +99,8 @@ class VoiceSession:
             return PlaybackState.PAUSED
         if self._connection.is_playing():
             return PlaybackState.PLAYING
+        if self._starting:
+            return PlaybackState.STARTING
         return PlaybackState.IDLE
 
     def attach(self, connection: VoiceConnection, text_channel_id: int) -> None:
@@ -107,8 +112,8 @@ class VoiceSession:
             self._start_timeout(EndReason.IDLE)
 
     async def start(self, text_channel_id: int) -> None:
-        """Play the next queued track, unless something is already playing or paused."""
-        if self.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+        """Play the next queued track, unless something is already playing, paused or starting."""
+        if self.state in (PlaybackState.PLAYING, PlaybackState.PAUSED, PlaybackState.STARTING):
             return
 
         self.text_channel_id = text_channel_id
@@ -204,10 +209,30 @@ class VoiceSession:
         await self._notifier.session_ended(reason, text_channel_id)
 
     async def _play_next(self) -> None:
+        """Start the next track that works, or start the IDLE timeout when none is left.
+
+        Starting takes a few seconds and nothing plays meanwhile, so commands and track ends can
+        arrive during it. Only one run may go at a time: a second one would take another track
+        from the queue, and Discord would refuse to play both.
+        """
+        if self._starting:
+            return
+
+        self._starting = True
+        try:
+            started = await self._start_first_playable()
+        finally:
+            self._starting = False
+
+        if not started and self._connection is not None:
+            self._start_timeout(EndReason.IDLE)
+
+    async def _start_first_playable(self) -> bool:
+        """Go through the queue until a track starts; return whether one did."""
         while (track := self.queue.advance()) is not None:
             if self._connection is None:
                 self.queue.clear()
-                return
+                return False
 
             try:
                 await self._connection.play(track, on_end=self.on_track_ended)
@@ -222,10 +247,9 @@ class VoiceSession:
 
             self._timer.cancel()
             logger.info("Now playing '%s'.", track.title)
-            return
+            return True
 
-        if self._connection is not None:
-            self._start_timeout(EndReason.IDLE)
+        return False
 
     def _start_timeout(self, reason: EndReason) -> None:
         if self._requests > 0:

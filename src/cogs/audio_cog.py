@@ -394,7 +394,7 @@ class AudioCog(commands.Cog):
         user = ctx.author
         state = self.session.state
 
-        if state == PlaybackState.IDLE:
+        if state in (PlaybackState.IDLE, PlaybackState.STARTING):
             await ctx.send(embed=discord.Embed(description=msg.FAIL_BOT_NOT_PLAYING))
             logger.info(msg.LOG_PAUSE_FAILED_NOT_PLAYING.format(user=user.name))
             return 

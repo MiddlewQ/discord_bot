@@ -21,6 +21,8 @@ class FakeConnection:
         self.paused = False
         self.played: list[str] = []
         self.disconnected = False
+        # When set, play() waits for this event, like the seconds yt-dlp needs before audio starts
+        self.gate: asyncio.Event | None = None
         self._on_end = None
 
     def is_playing(self) -> bool:
@@ -33,6 +35,8 @@ class FakeConnection:
         return self.humans
 
     async def play(self, track, on_end) -> None:
+        if self.gate is not None:
+            await self.gate.wait()
         if track.title in self.failing:
             raise PlaybackError("refused")
         self.played.append(track.title)
@@ -130,6 +134,76 @@ def test_start_plays_first_track_and_cancels_timeout():
     assert session.state == PlaybackState.PLAYING
     assert session.queue.current == make_track("a")
     assert not timer.running
+
+
+def test_state_is_starting_until_the_audio_begins():
+    async def scenario():
+        session, connection, _, _ = attached_session("a")
+        connection.gate = asyncio.Event()
+
+        start = asyncio.create_task(session.start(TEXT_CHANNEL))
+        await asyncio.sleep(0)
+        assert session.state == PlaybackState.STARTING
+
+        connection.gate.set()
+        await start
+        assert session.state == PlaybackState.PLAYING
+
+    asyncio.run(scenario())
+
+
+def test_state_returns_to_idle_when_no_track_could_start():
+    session, connection, timer, _ = attached_session("a", failing=("a",))
+
+    asyncio.run(session.start(TEXT_CHANNEL))
+    assert session.state == PlaybackState.IDLE
+    assert timer.seconds == 600
+
+    connection.failing.clear()
+    session.queue.enqueue(make_track("b"))
+    asyncio.run(session.start(TEXT_CHANNEL))
+    assert connection.played == ["b"]
+
+
+def test_second_start_while_a_track_is_starting_does_nothing():
+    async def scenario():
+        session, connection, _, notifier = attached_session("a", "b")
+        connection.gate = asyncio.Event()
+
+        first_start = asyncio.create_task(session.start(TEXT_CHANNEL))
+        await asyncio.sleep(0)  # a is now waiting for its stream
+        second_start = asyncio.create_task(session.start(TEXT_CHANNEL))
+        await asyncio.sleep(0)
+
+        connection.gate.set()
+        await asyncio.gather(first_start, second_start)
+
+        assert connection.played == ["a"]
+        assert session.queue.current == make_track("a")
+        assert session.queue.upcoming == (make_track("b"),)
+        assert notifier.failed == []
+
+    asyncio.run(scenario())
+
+
+def test_track_ending_while_another_is_starting_does_not_start_a_third():
+    async def scenario():
+        session, connection, _, _ = attached_session("a", "b", "c")
+        connection.gate = asyncio.Event()
+
+        first_start = asyncio.create_task(session.start(TEXT_CHANNEL))
+        await asyncio.sleep(0)
+        track_ended = asyncio.create_task(session.on_track_ended())
+        await asyncio.sleep(0)
+
+        connection.gate.set()
+        await asyncio.gather(first_start, track_ended)
+
+        assert connection.played == ["a"]
+        assert session.queue.current == make_track("a")
+        assert session.queue.upcoming == (make_track("b"), make_track("c"))
+
+    asyncio.run(scenario())
 
 
 def test_start_while_playing_does_nothing():
