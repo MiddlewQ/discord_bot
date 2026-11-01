@@ -34,7 +34,14 @@ Decisions:
 - `!clear` does not reset them.
 - The Added to queue card shows both the number and the position.
 
-## 2. Logging cleanup
+## 2. Queue view redesign
+
+`!queue` needs a new design that fits the number and position system.
+
+- A more compact view.
+- Show at least 10 tracks per page; 5 is too few.
+
+## 3. Logging cleanup
 
 The bot logs to several files without the content justifying it, and DEBUG
 is hardly used.
@@ -47,7 +54,7 @@ is hardly used.
 - Fix `disabled_existing_loggers` in `logging_config.py`, a typo for
   `disable_existing_loggers` that makes the setting ignored.
 
-## 3. Warn the owner about errors
+## 4. Warn the owner about errors
 
 The owner only notices problems by reading the logs or being in the call.
 
@@ -57,7 +64,7 @@ The owner only notices problems by reading the logs or being in the call.
 
 Open question: is a DM the right place, or a channel?
 
-## 4. Permissions
+## 5. Permissions
 
 Other bots overdo this, for example by requiring votes to skip. All
 existing text and voice channel rules still apply, except where noted.
@@ -71,7 +78,7 @@ existing text and voice channel rules still apply, except where noted.
 Tracks need to remember who added them. The rules go in `check()` in
 `src/bot/admission.py`, which already receives `author_id`.
 
-## 5. Playlists
+## 6. Playlists
 
 - A separate command queues a YouTube playlist.
 - A normal link in `!play` keeps adding only that one video.
@@ -82,14 +89,14 @@ Open questions:
 - Test how `!play` handles a pure playlist link; so far only the
   no-playlist options have been confirmed, not real behaviour.
 
-## 6. Auto-pause
+## 7. Auto-pause
 
 Pause when the last person leaves, resume when someone joins.
 
 Open question: how does this combine with the no-humans timeout? For
 example, pause first and leave later.
 
-## 7. Several servers at once
+## 8. Several servers at once
 
 The bot has one `VoiceSession`, so it can only be active in one server.
 
@@ -99,7 +106,7 @@ The bot has one `VoiceSession`, so it can only be active in one server.
 
 Open question: should logs (not stats) be kept per server?
 
-## 8. Stats that survive restarts
+## 9. Stats that survive restarts
 
 Fun numbers on what gets played, kept across restarts.
 
@@ -117,7 +124,7 @@ Fun numbers on what gets played, kept across restarts.
 Genre and "non-songs" need outside metadata or some analysis, so they can
 come later.
 
-## 9. Prefetch and cache
+## 10. Prefetch and cache
 
 Goal: both speed and reliability, including on the Pi's bad internet.
 Downloading before playing alone would trade speed for reliability.
@@ -142,9 +149,9 @@ Requirements:
 5. Off by default, because it would be a problem on devices with little
    storage.
 6. Document it clearly in the README, since it can affect users a lot.
-7. Warn when space runs low, through the owner warnings in item 3.
+7. Warn when space runs low, through the owner warnings in item 4.
 
-## 10. Other providers
+## 11. Other providers
 
 YouTube has almost everything, but not quite.
 
@@ -155,7 +162,7 @@ YouTube has almost everything, but not quite.
 - Spotify audio can't be streamed. Bots that "play Spotify" search YouTube
   for the title, which is where the covers come from.
 
-## 11. README
+## 12. README
 
 List all features and settings. Also fix "both is available" in Notes.
 
