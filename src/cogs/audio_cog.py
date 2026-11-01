@@ -265,7 +265,8 @@ class AudioCog(commands.Cog):
         # to it; tell Discord it left. on_ready also runs after reconnects, where the voice
         # client still exists, so a live session is never touched.
         for guild in self.bot.guilds:
-            voice = guild.me.voice
+            # guild.me can be empty at startup, even though its type says it never is
+            voice = guild.me.voice if guild.me is not None else None
             if voice is None or voice.channel is None or guild.voice_client is not None:
                 continue
 
