@@ -9,7 +9,7 @@ what is still useful to know.
 
 ## Now
 
-Item 2, Queue view redesign, not started.
+Item 3, Logging cleanup, not started.
 
 ## 1. Stable track numbers (done)
 
@@ -21,13 +21,10 @@ until it has played, and `!queue` and `!remove` use it.
   mistake. The place in line is shown in the header instead (up next, X songs ahead).
 - `!remove <number>` on the current track acts like `!skip`.
 
-## 2. Queue view redesign
+## 2. Queue view redesign (done)
 
-`!queue` needs a new design that fits the number and position system.
-
-- A more compact view.
-- Show at least 10 tracks per page; 5 is too few.
-- Show the current track's number; `!remove <number>` skips it, but today only its card shows it.
+`!queue` is now one compact text list, 10 tracks per page, with one `#number` per row. The current
+track stays on every page with its number, and buttons only appear when there is more than one page.
 
 ## 3. Logging cleanup
 
@@ -145,8 +142,8 @@ List all features and settings. Also fix "both is available" in Notes.
 
 ## Smaller items
 
-- For the few seconds a track is starting, `!skip` and `!remove <number>` answer "no track playing
-  to skip", and `!clear` empties the queue but the starting track still plays.
+- For the few seconds a track is starting, `!clear` empties the queue but the starting track still
+  plays.
 - Drop mistaken duplicates: if separate commands add the same YouTube video within about 2 seconds,
   from the same person or different people, only the first adds it, and the bot says so. Compare by
   video URL, not title. Measure from when the commands were typed, because searches take seconds.
