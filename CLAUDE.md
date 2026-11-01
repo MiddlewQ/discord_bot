@@ -92,8 +92,8 @@ time.
   `docker compose stop`.
 - **Dependencies live in two places**: `requirements.txt` (Docker, pip) and
   `pyproject.toml`/`uv.lock` (local, uv). Add new ones to both.
-- **Logging is configured on import** of `logging_config.py`: it writes to relative `logs/*.log`
-  paths and overwrites them on every start. Run from the repo root with `logs/` present, and use the
+- **Logging starts when `main()` calls `setup_logging()`**, not on import, so tests write no log
+  files. It writes to the relative path `logs/bot.log`, so run from the repo root, and use the
   configured logger names (`bot`, `audio`).
 
 ## Roadmap

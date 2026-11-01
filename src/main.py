@@ -14,7 +14,7 @@ from src.cogs.audio_cog import AudioCog
 from dotenv import load_dotenv
 
 # Logging
-from src.utils.logging_config import *
+from src.utils.logging_config import setup_logging
 import src.utils.message as msg
 
 
@@ -73,6 +73,7 @@ async def shutdown(bot: commands.Bot, sig: signal.Signals, logger: logging.Logge
 
 
 async def main():
+    setup_logging()
     load_dotenv()
 
     token = os.getenv("DISCORD_TOKEN")

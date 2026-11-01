@@ -9,7 +9,7 @@ from src.bot.track_resolver import LookupFailure, TrackResolver
 from src.audio.track import Track
 from src.audio.track_queue import Placement
 from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
-from src.utils.logging_config import *
+import logging
 import src.utils.message as msg
 from src.utils.time_conversion import *
 from src.utils.pagination import LinePaginationView

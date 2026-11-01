@@ -10,7 +10,7 @@ from yt_dlp.utils import DownloadError, ExtractorError
 
 from src.audio.track import Track
 from src.bot.playback import YTDLP_AUDIO_FORMAT
-from src.utils.logging_config import logging
+import logging
 import src.utils.message as msg
 
 logger = logging.getLogger("audio")

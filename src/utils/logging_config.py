@@ -1,75 +1,51 @@
-import logging
-import functools
-from  discord.ext import commands
 from logging.config import dictConfig
-from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
-   
+LOG_FILE = Path("logs/bot.log")
+LOG_FILE_MAX_BYTES = 5_000_000
+LOG_FILE_BACKUPS = 2  # bot.log.1 and bot.log.2, so at most about 15 MB on disk
 
-# Handling for logging
+# Handlers (the places a log line ends up) sit on the root logger, the parent of every other logger.
+# That way lines from this bot and from discord.py all reach the same console and file.
 LOGGING_CONFIG = {
     "version": 1,
-    "disabled_existing_loggers": False,
+    # Loggers are created when their file is imported, before setup_logging() runs. Keep them working.
+    "disable_existing_loggers": False,
     "formatters": {
         "standard": {
-            "format": "%(levelname)-10s - %(name)-15s : %(message)s"
-        },
-        "verbose": {
-            "format": "%(levelname)-10s - %(asctime)s - %(module)-15s : %(message)s"
+            "format": "%(levelname)-8s - %(asctime)s - %(name)s : %(message)s"
         },
     },
     "handlers": {
         "console": {
-            'level': "DEBUG",
-            'class': "logging.StreamHandler",
-            'formatter': "standard"
-        },
-        "console2": {
-            'level': "WARNING",
-            'class': "logging.StreamHandler",
-            'formatter': "standard"
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
         },
         "file": {
-            'level': "INFO",
-            'class': "logging.FileHandler",
-            'filename': "logs/info.log",
-            'mode': 'w',
-            'formatter': "verbose"
+            "level": "DEBUG",
+            # Adds to the file, so a crash and restart keeps the lines that explain the crash.
+            # When the file is full it becomes a backup, and the oldest backup is deleted.
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(LOG_FILE),
+            "maxBytes": LOG_FILE_MAX_BYTES,
+            "backupCount": LOG_FILE_BACKUPS,
+            "encoding": "utf-8",
+            "formatter": "standard",
         },
-        'file_audio': {
-            'level': "DEBUG",
-            'class': "logging.FileHandler",
-            'filename': "logs/info_audio.log",
-            'mode': 'w',
-            'formatter': 'verbose',
-        },
-        'file_errors': {
-            'level': "ERROR",
-            'class': "logging.FileHandler",
-            'filename': "logs/errors.log",
-            'mode': 'w',
-            'formatter': 'verbose',
-        }
+    },
+    "root": {
+        "handlers": ["console", "file"],
+        "level": "INFO",
     },
     "loggers": {
-        "bot": {
-            'handlers': ['console', 'file', 'file_errors'],
-            'level': "DEBUG",
-            'propagate': False,
-        },
-        "discord": {
-            'handlers' : ['console2', "file"],
-            'level': "INFO",
-            'propagate': False,
-        },
-        "audio": {
-            'handlers': ['console', 'file_audio', 'file_errors'],
-            'level': "DEBUG",
-            'propagate': False,
-        },
-    }
+        "bot": {"level": "DEBUG"},
+        "audio": {"level": "DEBUG"},
+    },
 }
 
 
-dictConfig(LOGGING_CONFIG)
+def setup_logging() -> None:
+    """Send log lines to the console and to logs/bot.log. Call once, when the bot starts."""
+    LOG_FILE.parent.mkdir(exist_ok=True)
+    dictConfig(LOGGING_CONFIG)

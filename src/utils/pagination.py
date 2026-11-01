@@ -1,6 +1,6 @@
 import discord
 import math
-from src.utils.logging_config import logging
+import logging
 import src.utils.message as msg
 logger = logging.getLogger("bot")
 

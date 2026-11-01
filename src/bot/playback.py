@@ -11,7 +11,7 @@ from discord.ext import commands
 
 from src.audio.track import Track
 from src.audio.voice_session import EndReason, PlaybackError
-from src.utils.logging_config import logging
+import logging
 import src.utils.message as msg
 
 logger = logging.getLogger("audio")
