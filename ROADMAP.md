@@ -170,6 +170,12 @@ List all features and settings. Also fix "both is available" in Notes.
 
 ## Smaller items
 
+- Drop mistaken duplicates: if separate commands add the same YouTube video
+  within about 2 seconds, from the same person or different people, only the
+  first adds it, and the bot says so. Compare by video URL, not title. Measure
+  from when the commands were typed, because searches take seconds. One
+  command may repeat a song (`!mp houdini | houdini | houdini`), and repeats
+  more than 2 seconds apart are always allowed.
 - "Starts in" counts the full current song, not the time left in it, so
   estimates run high. Fixing it means tracking when the song started and
   how long it was paused.
