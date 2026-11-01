@@ -2,9 +2,12 @@
 
 A personal Discord music bot built with `discord.py`, `yt-dlp`, and FFmpeg.
 
-The bot can search YouTube, stream audio to a Discord voice channel, manage a queue, and control playback through text commands. It is designed to run continuously on Linux, preferably on a Raspberry Pi or similar small server.
+The bot can search YouTube, stream audio to a Discord voice channel, manage a queue, and control
+playback through text commands. It is designed to run continuously on Linux, preferably on a
+Raspberry Pi or similar small server.
 
-This project was originally based on [pawel02/music_bot](https://github.com/pawel02/music_bot/), but has since been heavily reworked.
+This project was originally based on [pawel02/music_bot](https://github.com/pawel02/music_bot/), but
+has since been heavily reworked.
 
 ## Features
 
@@ -25,7 +28,7 @@ This project was originally based on [pawel02/music_bot](https://github.com/pawe
 All command responses are sent as Discord embeds.
 
 | Command | Description |
-|---|---|
+| --- | --- |
 | `help` | Show available commands |
 | `join` | Connect the bot to your voice channel |
 | `play` | Search for and play/queue a track |
@@ -44,7 +47,9 @@ All command responses are sent as Discord embeds.
 
 This bot is intended to run on Linux.
 
-For best results, run it on a Raspberry Pi or another always-on Linux machine. Running the bot from a regular desktop PC can work, but audio playback may lag more compared to running it on a dedicated device like a Raspberry Pi.
+For best results, run it on a Raspberry Pi or another always-on Linux machine. Running the bot from
+a regular desktop PC can work, but audio playback may lag more compared to running it on a dedicated
+device like a Raspberry Pi.
 
 ## Setup
 
@@ -56,21 +61,28 @@ Example:
 DISCORD_TOKEN=your_token_here
 COMMAND_PREFIX=!
 ```
+
 ## Running with Docker Compose
 
 Docker Compose is the recommended way to run the bot.
 
 Build and start:
 
-    docker compose up -d --build
+```bash
+docker compose up -d --build
+```
 
 Follow logs:
 
-    docker compose logs -f
+```bash
+docker compose logs -f
+```
 
 Stop the bot:
 
-    docker compose down
+```bash
+docker compose down
+```
 
 Logs are saved in the `logs/` directory.
 
@@ -78,23 +90,31 @@ Logs are saved in the `logs/` directory.
 
 Build the image:
 
-    docker build -t discord_bot .
+```bash
+docker build -t discord_bot .
+```
 
 Run the container:
 
-    docker run -d --name discord_bot --env-file .env discord_bot:latest
+```bash
+docker run -d --name discord_bot --env-file .env discord_bot:latest
+```
 
 Follow logs:
 
-    docker logs -f discord_bot
+```bash
+docker logs -f discord_bot
+```
 
 To persist logs on the host machine:
 
-    mkdir -p logs
+```bash
+mkdir -p logs
 
-    docker run -d --name discord_bot --env-file .env \\
-      -v "$PWD/logs:/usr/src/app/logs" \\
-      discord_bot:latest
+docker run -d --name discord_bot --env-file .env \
+  -v "$PWD/logs:/usr/src/app/logs" \
+  discord_bot:latest
+```
 
 ## Local development with uv
 
@@ -102,20 +122,28 @@ To persist logs on the host machine:
 
 Install dependencies:
 
-    uv sync
+```bash
+uv sync
+```
 
 Run the bot:
 
-    uv run python -m src.main
+```bash
+uv run python -m src.main
+```
 
 Run the tests:
 
-    uv run pytest
+```bash
+uv run pytest
+```
 
-`src/audio/` holds the logic without Discord and must not import `discord`; that's what lets `tests/` run without a bot.
+`src/audio/` holds the logic without Discord and must not import `discord`; that's what lets
+`tests/` run without a bot.
 
 Docker is still recommended for deployment, since it avoids most dependency and environment issues.
 
 ## Notes
 
-The bot uses `yt-dlp` for YouTube extraction and FFmpeg for audio streaming. Make sure both is available in the environment when running without Docker.
+The bot uses `yt-dlp` for YouTube extraction and FFmpeg for audio streaming. Make sure both is
+available in the environment when running without Docker.
