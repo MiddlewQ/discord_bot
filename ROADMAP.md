@@ -4,33 +4,22 @@ Planned features for the bot, in rough order. Each item should be built in small
 change per commit. Read an item's open questions before starting it, and settle them with the owner
 first.
 
-Update `Now` and delete an item only once it is finished; `git log` has the history.
+Update `Now` and mark an item `(done)` only once it is finished. Done items stay here, cut down to
+what is still useful to know.
 
 ## Now
 
-Item 1, Stable track numbers, in progress.
+Item 2, Queue view redesign, not started.
 
-- Done: TrackQueue, including tests.
-- Done: `!queue`, `!remove` and the cards use numbers.
-- Next: removing the current track acts like a skip, for example `!remove 1` while track 1 plays.
-  `TrackQueue` must remember the current track's number.
+## 1. Stable track numbers (done)
 
-## 1. Stable track numbers
+Positions shift as tracks play, which made `!remove` unreliable. Every track now keeps one number
+until it has played, and `!queue` and `!remove` use it.
 
-Positions shift as tracks play, which makes `!remove` unreliable. Example: tracks 11 and 12 are
-identical, and five minutes later neither number exists, so the bot answers "invalid position".
-
-- Every queued track keeps one number until it has played, and numbers are never reused while they
-  could still be confused.
-- `!remove` and `!queue` use that number.
-- The place in line stays a separate value, used for "up next" and "Starts in".
-
-Decisions:
-
-- Numbers restart at 1 for each new session.
-- `!clear` does not reset them.
-- The Added to queue and Now playing cards show both the number and the position.
-- Removing the current track acts like skipping it.
+- Numbers restart at 1 for each new session; `!clear` does not reset them.
+- The number is the only `#` on the cards, so nobody uses the place in line with `!remove` by
+  mistake. The place in line is shown in the header instead (up next, X songs ahead).
+- `!remove <number>` on the current track acts like `!skip`.
 
 ## 2. Queue view redesign
 
@@ -38,6 +27,7 @@ Decisions:
 
 - A more compact view.
 - Show at least 10 tracks per page; 5 is too few.
+- Show the current track's number; `!remove <number>` skips it, but today only its card shows it.
 
 ## 3. Logging cleanup
 
@@ -155,6 +145,8 @@ List all features and settings. Also fix "both is available" in Notes.
 
 ## Smaller items
 
+- For the few seconds a track is starting, `!skip` and `!remove <number>` answer "no track playing
+  to skip", and `!clear` empties the queue but the starting track still plays.
 - Drop mistaken duplicates: if separate commands add the same YouTube video within about 2 seconds,
   from the same person or different people, only the first adds it, and the bot says so. Compare by
   video URL, not title. Measure from when the commands were typed, because searches take seconds.
