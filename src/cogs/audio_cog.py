@@ -12,12 +12,14 @@ from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
 from src.utils.logging_config import *
 import src.utils.message as msg
 from src.utils.time_convertion import *
-from src.utils.partionation import PaginationView
+from src.utils.partionation import LinePaginationView
+from src.utils.queue_text import format_queue_line
 
 logger = logging.getLogger("audio")
 
 MAX_TRACK_SECONDS = 1800
 MULTIPLAY_MAX_TRACKS = 8
+QUEUE_TRACKS_PER_PAGE = 10
 
 # Why a search can't be queued, as the reason in "Could not add <search>: <reason>"
 LOOKUP_REASONS = {
@@ -500,39 +502,39 @@ class AudioCog(commands.Cog):
         vc = self.get_vc(ctx.guild)
         channel_name = vc.channel.name if vc is not None and vc.channel is not None else "Not connected"
 
-        data = {
-            "time_label": "Estimated Total Playtime",
-            "time": seconds_to_time_format(queue.total_duration),
-            "thumbnail": ctx.guild.icon.url if ctx.guild and ctx.guild.icon else None,
-            "fields": [],
-        }
-
         current = queue.current
         if current is not None:
-            description = msg.QUEUE_START_PLAYBACK.format(
-                title=current.title,
-                webpage_url=current.webpage_url
+            description = msg.QUEUE_CURRENT.format(
+                number=queue.current_number,
+                title=discord.utils.escape_markdown(current.title),
+                webpage_url=current.webpage_url,
+                length=format_track_length(current.duration),
             )
         else:
-            description = "Nothing currently playing."
+            description = msg.QUEUE_NOTHING_PLAYING
 
         upcoming = queue.numbered_upcoming
-        for queued in upcoming:
-            data['fields'].append({
-                'label': "",
-                'item': f"**{queued.number}.** {queued.track.title}",
-            })
+        if upcoming:
+            description += msg.QUEUE_UP_NEXT
 
-        pagination_view = PaginationView(
-            data=data,
+        number_of_tracks = len(upcoming) + (1 if current is not None else 0)
+
+        pagination_view = LinePaginationView(
+            data={
+                "thumbnail": current.thumbnail if current is not None else None,
+                "fields": [format_queue_line(queued) for queued in upcoming],
+                "summary": msg.QUEUE_SUMMARY.format(
+                    tracks=number_of_tracks,
+                    total=format_wait(queue.total_duration),
+                ),
+            },
             title=msg.QUEUE_STATUS.format(channel_name=channel_name),
             description=description,
-            timeout=None
+            timeout=None,
+            sep=QUEUE_TRACKS_PER_PAGE,
         )
 
         await pagination_view.send(ctx)
-        
-        number_of_tracks = len(upcoming) + (1 if current is not None else 0)
 
         logger.info(
             msg.LOG_QUEUE_DISPLAYED.format(

@@ -95,7 +95,12 @@ SKIP_FAIL_NOTHING_TO_SKIP           = ":gear: There's no track playing to skip."
 QUEUE_STATUS                        = ":gear: Track Queue | {channel_name}"
 QUEUE_EMPTY                         = ":gear: Queue is empty."
 QUEUE_CLEARED                       = ":gear: Queue cleared."
-QUEUE_START_PLAYBACK                = ":gear: Now playing: [{title}]({webpage_url})"
+QUEUE_CURRENT                       = ":arrow_forward: `#{number}` [{title}]({webpage_url}) · {length}"
+QUEUE_NOTHING_PLAYING               = "Nothing currently playing."
+QUEUE_UP_NEXT                       = "\n**Up next**"
+QUEUE_LINE                          = "`#{number}` {title} · {length}"
+QUEUE_SUMMARY                       = "{tracks} in queue · {total} total"
+PAGE_FOOTER                         = "Page {page}/{pages} · {summary}"
 FAIL_QUEUE_EMPTY                    = ":gear: No tracks in queue."
 
 # Remove

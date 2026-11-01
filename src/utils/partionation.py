@@ -131,3 +131,37 @@ class PaginationView(discord.ui.View):
         await interaction.response.defer()
         self.current_page = self.page_count()
         await self.update_message()
+
+
+class LinePaginationView(PaginationView):
+    """Pages of plain text lines instead of embed fields, which take far less room.
+
+    data["fields"] holds one string per line, and data["summary"] goes in the footer next to the
+    page number. data["thumbnail"] is an optional image URL. The description stays on every page.
+    Lines have a blank line between them so they are easy to read. A single page shows no buttons.
+    """
+
+    async def send(self, ctx):
+        if self.page_count() > 1:
+            await super().send(ctx)
+        else:
+            await ctx.send(embed=self.create_embed())
+
+    def create_embed(self):
+        lines = [self.description, *self.get_current_page_data()]
+        embed = discord.Embed(
+            title=self.title,
+            description="\n\n".join(line for line in lines if line),
+            color=discord.Color.blue(),
+        )
+        thumbnail = self.data.get("thumbnail")
+        if thumbnail:
+            embed.set_thumbnail(url=thumbnail)
+        embed.set_footer(text=msg.PAGE_FOOTER.format(
+            page=self.current_page,
+            pages=self.page_count(),
+            summary=self.data["summary"],
+        ))
+
+        logger.debug(msg.LOG_PAGINATOR_EXECUTED.format(page=self.current_page))
+        return embed
