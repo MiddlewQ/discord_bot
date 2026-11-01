@@ -11,8 +11,8 @@ from src.audio.track_queue import Placement
 from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
 from src.utils.logging_config import *
 import src.utils.message as msg
-from src.utils.time_convertion import *
-from src.utils.partionation import LinePaginationView
+from src.utils.time_conversion import *
+from src.utils.pagination import LinePaginationView
 from src.utils.queue_text import format_queue_line
 
 logger = logging.getLogger("audio")

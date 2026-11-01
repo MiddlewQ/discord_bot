@@ -32,7 +32,7 @@ Each folder answers one question. Put new code where its question fits.
   import discord or yt-dlp, which is what keeps it testable; it reaches the outside through the
   Protocols in `voice_session.py`, implemented in `bot/playback.py`.
 - `src/utils/`: `message.py` (all strings), `queue_text.py` (rows of `!queue`), `logging_config.py`,
-  `time_convertion.py` and `partionation.py` (both names are misspelled).
+  `time_conversion.py` and `pagination.py`.
 
 `!play` flows: `cogs/audio_cog.py` → `bot/admission.py` (may it run here?) → `bot/track_resolver.py`
 (find the track) → `audio/voice_session.py` (queue and play it) → `bot/playback.py` (make Discord

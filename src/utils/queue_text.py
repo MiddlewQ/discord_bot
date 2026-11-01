@@ -2,7 +2,7 @@ from discord.utils import escape_markdown
 
 from src.audio.track_queue import QueuedTrack
 import src.utils.message as msg
-from src.utils.time_convertion import format_track_length
+from src.utils.time_conversion import format_track_length
 
 # Long enough for most titles, short enough to stay on one line beside the thumbnail on a computer
 MAX_TITLE_LENGTH = 45

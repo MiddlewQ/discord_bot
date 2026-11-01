@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from src.utils.partionation import PaginationView
+from src.utils.pagination import PaginationView
 from src.utils.logging_config import logging
 import src.utils.message as msg
 
