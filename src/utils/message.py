@@ -11,7 +11,7 @@ HELP_MESSAGES = {
     "skip": "Skips the current track.",
     "queue": "Displays the current queue.",
     "playing": "Displays the currently playing track.",
-    "remove": "Removes a track from the queue. Without an index, removes the last queued track.",
+    "remove": "Removes a track from the queue, using its number from !queue. Without a number, removes the last queued track.",
     "clear": "Clears the queue and stops the current track.",
     "stop": "Disconnects the bot and clears the queue.",
     "status": "Displays the current audio status.",
@@ -27,7 +27,7 @@ HELP_USAGES = {
     "skip": "!skip",
     "queue": "!queue",
     "playing": "!playing",
-    "remove": "!remove, !remove <index>",
+    "remove": "!remove, !remove <number>",
     "clear": "!clear",
     "stop": "!stop",
     "status": "!status, !stat",
@@ -69,6 +69,10 @@ PLAY_FAIL_VIDEO_AGE_RESTRICTED      = "The video is age-restricted and cannot be
 PLAY_FAIL_YTDLP_RUNTIME             = "YouTube extraction is not fully configured on the bot."
 PLAY_FAIL_YTDLP_ERROR               = "YouTube could not be read right now."
 
+# Added to queue and Now playing cards
+CARD_NUMBER                         = "Number"
+CARD_POSITION                       = "Position"
+
 # Multiplay
 MULTIPLAY_MAX_TRACKS                = ":gear: Max {number} tracks can be added at once. Adding the first {number}."
 MULTIPLAY_SUMMARY                   = ":gear: Added {added} of {requested} tracks."
@@ -93,8 +97,8 @@ QUEUE_START_PLAYBACK                = ":gear: Now playing: [{title}]({webpage_ur
 FAIL_QUEUE_EMPTY                    = ":gear: No tracks in queue."
 
 # Remove
-TRACK_REMOVED                       = ":gear: Track {title} removed at position {index}."
-FAIL_INVALID_INDEX                  = ":gear: Invalid position in queue."
+TRACK_REMOVED                       = ":gear: Track {number}, {title}, removed."
+FAIL_INVALID_NUMBER                 = ":gear: No queued track has that number."
 
 # Stop
 STOP_BY_USER                        = ":gear: Stopped by user."
@@ -168,8 +172,8 @@ LOG_QUEUE_DISPLAYED                 = "Queue command executed: Showing {number_o
 LOG_CLEAR_EXECUTED                  = "Clear command executed: Queue cleared by '{user}'."
 
 # Remove
-LOG_REMOVE_EXECUTED                 = "Remove command executed: Track at index {index} removed by '{user}'."
-LOG_REMOVE_LAST_EXECUTED            = "Remove command executed: Last track at index {index} removed by '{user}'."
+LOG_REMOVE_EXECUTED                 = "Remove command executed: Track number {number} removed by '{user}'."
+LOG_REMOVE_LAST_EXECUTED            = "Remove command executed: Last track, number {number}, removed by '{user}'."
 LOG_REMOVE_FAILED_NO_QUEUE          = "Remove command failed: User '{user}' attempted to remove a track while the queue was empty."
 
 # Stop

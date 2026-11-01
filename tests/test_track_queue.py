@@ -1,5 +1,5 @@
 from src.audio.track import Track
-from src.audio.track_queue import QueuedTrack, TrackQueue
+from src.audio.track_queue import Placement, QueuedTrack, TrackQueue
 
 
 def make_track(title: str, duration: int = 60) -> Track:
@@ -15,12 +15,22 @@ def test_new_queue_is_empty():
     assert queue.total_duration == 0
 
 
-def test_enqueue_returns_position_in_upcoming():
+def test_enqueue_returns_number_and_position():
     queue = TrackQueue()
 
-    assert queue.enqueue(make_track("a")) == 1
-    assert queue.enqueue(make_track("b")) == 2
+    assert queue.enqueue(make_track("a")) == Placement(number=1, position=1)
+    assert queue.enqueue(make_track("b")) == Placement(number=2, position=2)
     assert [track.title for track in queue.upcoming] == ["a", "b"]
+
+
+def test_number_and_position_differ_once_tracks_have_played():
+    queue = TrackQueue()
+    queue.enqueue(make_track("a"))
+    queue.enqueue(make_track("b"))
+    queue.advance()
+    queue.advance()
+
+    assert queue.enqueue(make_track("c")) == Placement(number=3, position=1)
 
 
 def test_advance_moves_next_upcoming_to_current():
@@ -44,35 +54,6 @@ def test_advance_on_empty_upcoming_clears_current():
     assert queue.is_empty
 
 
-def test_remove_by_position():
-    queue = TrackQueue()
-    a, b, c = make_track("a"), make_track("b"), make_track("c")
-    for track in (a, b, c):
-        queue.enqueue(track)
-
-    assert queue.remove(2) == b
-    assert queue.upcoming == (a, c)
-
-
-def test_remove_out_of_range_returns_none():
-    queue = TrackQueue()
-    queue.enqueue(make_track("a"))
-
-    assert queue.remove(0) is None
-    assert queue.remove(2) is None
-    assert len(queue.upcoming) == 1
-
-
-def test_remove_does_not_touch_current():
-    queue = TrackQueue()
-    a = make_track("a")
-    queue.enqueue(a)
-    queue.advance()
-
-    assert queue.remove(1) is None
-    assert queue.current == a
-
-
 def test_total_duration_counts_current_and_upcoming():
     queue = TrackQueue()
     queue.enqueue(make_track("a", 100))
@@ -83,7 +64,7 @@ def test_total_duration_counts_current_and_upcoming():
     queue.advance()
     assert queue.total_duration == 600
 
-    queue.remove(2)
+    queue.remove_number(3)
     assert queue.total_duration == 300
 
     queue.advance()

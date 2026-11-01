@@ -12,9 +12,9 @@ history.
 Item 1, Stable track numbers, in progress.
 
 - Done: TrackQueue, including tests.
-- Next: switch `!queue` and `!remove` to numbers and delete `remove(position)`.
-- Then: the Added to queue card shows both values, so `enqueue()` must return
-  the number too.
+- Done: `!queue`, `!remove` and the cards use numbers.
+- Next: removing the current track acts like a skip, for example `!remove 1`
+  while track 1 plays. `TrackQueue` must remember the current track's number.
 
 ## 1. Stable track numbers
 
@@ -32,7 +32,9 @@ Decisions:
 
 - Numbers restart at 1 for each new session.
 - `!clear` does not reset them.
-- The Added to queue card shows both the number and the position.
+- The Added to queue and Now playing cards show both the number and the
+  position.
+- Removing the current track acts like skipping it.
 
 ## 2. Queue view redesign
 

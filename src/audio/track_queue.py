@@ -11,6 +11,14 @@ class QueuedTrack:
     track: Track
 
 
+@dataclass(frozen=True)
+class Placement:
+    """Where a newly queued track ended up: its lasting number and its place in line."""
+
+    number: int
+    position: int
+
+
 class TrackQueue:
     """The current track plus the upcoming tracks.
 
@@ -46,22 +54,16 @@ class TrackQueue:
         current = self._current.duration if self._current is not None else 0
         return current + sum(queued.track.duration for queued in self._upcoming)
 
-    def enqueue(self, track: Track) -> int:
-        """Add a track to the end of upcoming and return its position."""
+    def enqueue(self, track: Track) -> Placement:
+        """Add a track to the end of upcoming and return its number and position."""
         self._last_number += 1
         self._upcoming.append(QueuedTrack(self._last_number, track))
-        return len(self._upcoming)
+        return Placement(self._last_number, len(self._upcoming))
 
     def advance(self) -> Track | None:
         """Make the next upcoming track current and return it, or None when upcoming is empty."""
         self._current = self._upcoming.pop(0).track if self._upcoming else None
         return self._current
-
-    def remove(self, position: int) -> Track | None:
-        """Remove and return the track at position, or None if the position is out of range."""
-        if position < 1 or position > len(self._upcoming):
-            return None
-        return self._upcoming.pop(position - 1).track
 
     def remove_number(self, number: int) -> Track | None:
         """Remove and return the upcoming track with this number, or None if there is none."""

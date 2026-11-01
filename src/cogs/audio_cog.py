@@ -7,6 +7,7 @@ from src.bot.admission import CommandRequest, Needs, Reject, check
 from src.bot.playback import AsyncioTimer, DiscordSessionNotifier, DiscordVoiceConnection
 from src.bot.track_resolver import LookupFailure, TrackResolver
 from src.audio.track import Track
+from src.audio.track_queue import Placement
 from src.audio.voice_session import EndReason, PlaybackState, VoiceSession
 from src.utils.logging_config import *
 import src.utils.message as msg
@@ -154,7 +155,7 @@ class AudioCog(commands.Cog):
 
 
     # 3. Embed / yt-dlp helders
-    def build_queued_track_embed(self, track: Track, position: int, requester):
+    def build_queued_track_embed(self, track: Track, placement: Placement, requester):
         """Card posted when a track is queued behind others; styled like the Now playing card."""
         embed = discord.Embed(
             title=track.title,
@@ -163,19 +164,20 @@ class AudioCog(commands.Cog):
         )
         embed.add_field(name="Length", value=format_track_length(track.duration), inline=True)
         # Counts the full length of the current track, not the time left in it, so it is an estimate
-        embed.add_field(name="Starts in", value=format_wait(self.session.queue.time_until(position)), inline=True)
-        # Keep the number plain so the columns line up across cards; "up next" goes in the header
-        embed.add_field(name="Position", value=f"#{position}", inline=True)
+        embed.add_field(name="Starts in", value=format_wait(self.session.queue.time_until(placement.position)), inline=True)
+        # Keep the numbers plain so the columns line up across cards; "up next" goes in the header
+        embed.add_field(name=msg.CARD_NUMBER, value=f"#{placement.number}", inline=True)
+        embed.add_field(name=msg.CARD_POSITION, value=f"#{placement.position}", inline=True)
         bot_user = self.bot.user
         icon_url = bot_user.display_avatar.url if bot_user is not None else None
 
-        embed.set_author(icon_url=icon_url, name="Added to queue · up next" if position == 1 else "Added to queue")
+        embed.set_author(icon_url=icon_url, name="Added to queue · up next" if placement.position == 1 else "Added to queue")
         if track.thumbnail:
             embed.set_thumbnail(url=track.thumbnail)
         embed.set_footer(icon_url=requester.display_avatar.url, text=f"requested by {str(requester).capitalize()}")
         return embed
 
-    def build_now_playing_embed(self, track: Track, requester):
+    def build_now_playing_embed(self, track: Track, number: int, requester):
         """Card posted when a requested track starts right away; styled like the Added to queue card."""
         embed = discord.Embed(
             title=track.title,
@@ -183,6 +185,9 @@ class AudioCog(commands.Cog):
             color=discord.Color.blue(),
         )
         embed.add_field(name="Length", value=format_track_length(track.duration), inline=True)
+        embed.add_field(name=msg.CARD_NUMBER, value=f"#{number}", inline=True)
+        # A track that starts right away is first in line by definition
+        embed.add_field(name=msg.CARD_POSITION, value="#1", inline=True)
         bot_user = self.bot.user
         icon_url = bot_user.display_avatar.url if bot_user is not None else None
 
@@ -219,15 +224,15 @@ class AudioCog(commands.Cog):
                     if not await self.connect_session(ctx, user_channel):
                         return added, True
 
-                self.queue_track(track)
+                placement = self.queue_track(track)
                 await self.session.start(ctx.channel.id)
 
                 # If it couldn't start, the session already posted why
                 if self.session.queue.current is track:
-                    await ctx.send(embed=self.build_now_playing_embed(track, ctx.author))
+                    await ctx.send(embed=self.build_now_playing_embed(track, placement.number, ctx.author))
             else:
-                position = self.queue_track(track)
-                await ctx.send(embed=self.build_queued_track_embed(track, position, ctx.author))
+                placement = self.queue_track(track)
+                await ctx.send(embed=self.build_queued_track_embed(track, placement, ctx.author))
 
             added += 1
 
@@ -247,10 +252,10 @@ class AudioCog(commands.Cog):
         )))
         return None
 
-    def queue_track(self, track: Track) -> int:
-        position = self.session.queue.enqueue(track)
+    def queue_track(self, track: Track) -> Placement:
+        placement = self.session.queue.enqueue(track)
         logger.info(msg.LOG_PLAY_TRACK_QUEUED.format(title=track.title, webpage_url=track.webpage_url))
-        return position
+        return placement
 
 
     # 5. Listeners
@@ -479,11 +484,11 @@ class AudioCog(commands.Cog):
         else:
             description = "Nothing currently playing."
 
-        upcoming = queue.upcoming
-        for position, track in enumerate(upcoming, start=1):
+        upcoming = queue.numbered_upcoming
+        for queued in upcoming:
             data['fields'].append({
                 'label': "",
-                'item': f"**{position}.** {track.title}",
+                'item': f"**{queued.number}.** {queued.track.title}",
             })
 
         pagination_view = PaginationView(
@@ -539,29 +544,29 @@ class AudioCog(commands.Cog):
 
         if args:
             try:
-                position = int(args[0])
+                number = int(args[0])
             except ValueError:
-                await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
+                await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_NUMBER))
                 return
         else:
-            position = len(queue.upcoming)
+            number = queue.numbered_upcoming[-1].number
 
-        track = queue.remove(position)
+        track = queue.remove_number(number)
 
         if track is None:
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_INDEX))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_NUMBER))
             return
 
-        embed = discord.Embed(description=msg.TRACK_REMOVED.format(title=track.title, index=position))
+        embed = discord.Embed(description=msg.TRACK_REMOVED.format(title=track.title, number=number))
 
         if track.thumbnail:
             embed.set_thumbnail(url=track.thumbnail)
         await ctx.send(embed=embed)
 
         logger.info(
-            msg.LOG_REMOVE_LAST_EXECUTED.format(index=position, user=ctx.author.name)
+            msg.LOG_REMOVE_LAST_EXECUTED.format(number=number, user=ctx.author.name)
             if not args
-            else msg.LOG_REMOVE_EXECUTED.format(index=position, user=ctx.author.name)
+            else msg.LOG_REMOVE_EXECUTED.format(number=number, user=ctx.author.name)
         )
 
 
