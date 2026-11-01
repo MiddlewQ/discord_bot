@@ -28,13 +28,17 @@ class TrackQueue:
     """
 
     def __init__(self):
-        self._current: Track | None = None
+        self._current: QueuedTrack | None = None
         self._upcoming: list[QueuedTrack] = []
         self._last_number = 0
 
     @property
     def current(self) -> Track | None:
-        return self._current
+        return self._current.track if self._current is not None else None
+
+    @property
+    def current_number(self) -> int | None:
+        return self._current.number if self._current is not None else None
 
     @property
     def upcoming(self) -> tuple[Track, ...]:
@@ -51,7 +55,7 @@ class TrackQueue:
     @property
     def total_duration(self) -> int:
         """Full length of the current track plus all upcoming tracks, not the time remaining."""
-        current = self._current.duration if self._current is not None else 0
+        current = self._current.track.duration if self._current is not None else 0
         return current + sum(queued.track.duration for queued in self._upcoming)
 
     def enqueue(self, track: Track) -> Placement:
@@ -62,8 +66,8 @@ class TrackQueue:
 
     def advance(self) -> Track | None:
         """Make the next upcoming track current and return it, or None when upcoming is empty."""
-        self._current = self._upcoming.pop(0).track if self._upcoming else None
-        return self._current
+        self._current = self._upcoming.pop(0) if self._upcoming else None
+        return self.current
 
     def position_of(self, number: int) -> int | None:
         """The current position of the upcoming track with this number, or None if there is none."""
@@ -91,5 +95,5 @@ class TrackQueue:
 
     def time_until(self, position: int) -> int:
         """Estimated seconds until the track at position starts, counting the full current track."""
-        current = self._current.duration if self._current is not None else 0
+        current = self._current.track.duration if self._current is not None else 0
         return current + sum(queued.track.duration for queued in self._upcoming[:position - 1])

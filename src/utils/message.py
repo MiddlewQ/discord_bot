@@ -11,7 +11,7 @@ HELP_MESSAGES = {
     "skip": "Skips the current track.",
     "queue": "Displays the current queue.",
     "playing": "Displays the currently playing track.",
-    "remove": "Removes a track from the queue, using its number from !queue. Without a number, removes the last queued track.",
+    "remove": "Removes a track from the queue using its number; if that track is playing, skips it. Without a number, removes the last queued track.",
     "clear": "Clears the queue and stops the current track.",
     "stop": "Disconnects the bot and clears the queue.",
     "status": "Displays the current audio status.",

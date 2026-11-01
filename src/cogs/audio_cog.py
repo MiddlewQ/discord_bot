@@ -461,10 +461,14 @@ class AudioCog(commands.Cog):
         if (admitted := await self.admit(ctx, Needs.SAME_VOICE)) is None:
             return
 
+        await self.skip_current(ctx, admitted.vc)
+
+    async def skip_current(self, ctx, vc: discord.VoiceClient) -> None:
+        """Skip the current track and tell the user; used by !skip and by !remove on the current track."""
         user = ctx.author
 
         if self.session.state not in (PlaybackState.PLAYING, PlaybackState.PAUSED) or self.session.queue.current is None:
-            logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user.name, channel=admitted.vc.channel.name))
+            logger.info(msg.LOG_SKIP_FAILED_NO_AUDIO.format(user=user.name, channel=vc.channel.name))
             await ctx.send(embed=discord.Embed(description=msg.SKIP_FAIL_NOTHING_TO_SKIP))
             return
 
@@ -555,15 +559,11 @@ class AudioCog(commands.Cog):
 
     @commands.command(name="remove", aliases=["rm"], help=msg.HELP_MESSAGES['remove'], usage=msg.HELP_USAGES['remove'])
     async def remove(self, ctx, *args):
-        if await self.admit(ctx, Needs.SAME_VOICE) is None:
+        if (admitted := await self.admit(ctx, Needs.SAME_VOICE)) is None:
             return
 
         queue = self.session.queue
-
-        if not queue.upcoming:
-            logger.info(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
-            await ctx.send(embed=discord.Embed(description=msg.FAIL_QUEUE_EMPTY))
-            return
+        number = None
 
         if args:
             try:
@@ -571,7 +571,18 @@ class AudioCog(commands.Cog):
             except ValueError:
                 await ctx.send(embed=discord.Embed(description=msg.FAIL_INVALID_NUMBER))
                 return
-        else:
+
+            # Checked before the empty queue, because the current track may be the only one left
+            if number == queue.current_number:
+                await self.skip_current(ctx, admitted.vc)
+                return
+
+        if not queue.upcoming:
+            logger.info(msg.LOG_REMOVE_FAILED_NO_QUEUE.format(user=ctx.author.name))
+            await ctx.send(embed=discord.Embed(description=msg.FAIL_QUEUE_EMPTY))
+            return
+
+        if number is None:
             number = queue.numbered_upcoming[-1].number
 
         track = queue.remove_number(number)

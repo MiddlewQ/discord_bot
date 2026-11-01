@@ -163,6 +163,33 @@ def test_position_of_a_track_not_waiting_is_none():
     assert queue.position_of(2) is None
 
 
+def test_current_track_keeps_its_number():
+    queue = TrackQueue()
+    queue.enqueue(make_track("a"))
+    queue.enqueue(make_track("b"))
+    assert queue.current_number is None
+
+    queue.advance()
+    assert queue.current_number == 1
+
+    queue.advance()
+    assert queue.current_number == 2
+
+
+def test_current_number_is_gone_when_nothing_is_current():
+    queue = TrackQueue()
+    queue.enqueue(make_track("a"))
+    queue.advance()
+
+    queue.advance()
+    assert queue.current_number is None
+
+    queue.enqueue(make_track("b"))
+    queue.advance()
+    queue.clear()
+    assert queue.current_number is None
+
+
 def test_clear_keeps_counting():
     queue = TrackQueue()
     queue.enqueue(make_track("a"))
