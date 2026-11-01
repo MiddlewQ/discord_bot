@@ -69,6 +69,8 @@ class AudioCog(commands.Cog):
         
         self.session = VoiceSession(DiscordSessionNotifier(bot), AsyncioTimer())
         self.resolver = TrackResolver(max_seconds=MAX_TRACK_SECONDS)
+        # Joining voice takes a moment, and two commands joining at once would share a half-connected client
+        self._join_lock = asyncio.Lock()
         self.logger = logger
 
         self.logger.info("AudioCog initialized successfully.")
@@ -218,25 +220,45 @@ class AudioCog(commands.Cog):
             if track is None:
                 continue
 
-            if self.session.state in (PlaybackState.DISCONNECTED, PlaybackState.IDLE):
-                vc = self.get_vc(ctx.guild)
-                if vc is None or vc.channel != user_channel:
-                    if not await self.connect_session(ctx, user_channel):
-                        return added, True
+            if not await self.join_if_needed(ctx, user_channel):
+                return added, True
 
-                placement = self.queue_track(track)
+            # Nothing waits between reading the state and start() marking the session STARTING,
+            # so no other command can slip in here
+            placement = self.queue_track(track)
+            if self.session.state == PlaybackState.IDLE:
                 await self.session.start(ctx.channel.id)
 
-                # If it couldn't start, the session already posted why
-                if self.session.queue.current is track:
-                    await ctx.send(embed=self.build_now_playing_embed(track, placement.number, ctx.author))
-            else:
-                placement = self.queue_track(track)
-                await ctx.send(embed=self.build_queued_track_embed(track, placement, ctx.author))
-
+            await self.announce_track(ctx, track, placement.number)
             added += 1
 
         return added, False
+
+    async def join_if_needed(self, ctx, user_channel) -> bool:
+        """Join the user's voice channel unless the session is already busy; False if that failed.
+
+        One command joins at a time. A command that had to wait finds the bot connected, and
+        usually already starting a track, so it only has to queue its own.
+        """
+        async with self._join_lock:
+            if self.session.state not in (PlaybackState.DISCONNECTED, PlaybackState.IDLE):
+                return True
+
+            vc = self.get_vc(ctx.guild)
+            if vc is not None and vc.channel == user_channel:
+                return True
+
+            return await self.connect_session(ctx, user_channel)
+
+    async def announce_track(self, ctx, track: Track, number: int) -> None:
+        """Post the card that fits where the track is now: playing, or waiting in the queue."""
+        queue = self.session.queue
+
+        if queue.current is track:
+            await ctx.send(embed=self.build_now_playing_embed(track, number, ctx.author))
+        elif (position := queue.position_of(number)) is not None:
+            await ctx.send(embed=self.build_queued_track_embed(track, Placement(number, position), ctx.author))
+        # Otherwise it could not start, and the session already posted why
 
     async def resolve_track(self, ctx, query: str) -> Track | None:
         """Search for one query; on failure reply with the query and the reason, and return None."""

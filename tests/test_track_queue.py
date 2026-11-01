@@ -144,6 +144,25 @@ def test_remove_number_without_a_match_returns_none():
     assert numbers(queue) == [2]
 
 
+def test_position_of_follows_the_track_as_the_queue_moves():
+    queue = TrackQueue()
+    for title in ("a", "b", "c"):
+        queue.enqueue(make_track(title))
+
+    assert queue.position_of(3) == 3
+    queue.advance()
+    assert queue.position_of(3) == 2
+
+
+def test_position_of_a_track_not_waiting_is_none():
+    queue = TrackQueue()
+    queue.enqueue(make_track("a"))
+    queue.advance()  # a is current, so it is no longer waiting
+
+    assert queue.position_of(1) is None
+    assert queue.position_of(2) is None
+
+
 def test_clear_keeps_counting():
     queue = TrackQueue()
     queue.enqueue(make_track("a"))

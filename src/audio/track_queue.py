@@ -65,6 +65,13 @@ class TrackQueue:
         self._current = self._upcoming.pop(0).track if self._upcoming else None
         return self._current
 
+    def position_of(self, number: int) -> int | None:
+        """The current position of the upcoming track with this number, or None if there is none."""
+        for position, queued in enumerate(self._upcoming, start=1):
+            if queued.number == number:
+                return position
+        return None
+
     def remove_number(self, number: int) -> Track | None:
         """Remove and return the upcoming track with this number, or None if there is none."""
         for index, queued in enumerate(self._upcoming):
